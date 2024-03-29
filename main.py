@@ -1,5 +1,5 @@
 import discord, re
-import dotenv, os, random, json
+import dotenv, os, random, json, string
 from discord.ext import commands, tasks
 from easy_pil import Editor, load_image_async, Font
 from emoji import emoji_count
@@ -8,6 +8,47 @@ from webserver import keep_alive
 
 EMOJI_LIMIT = 6
 BANNED_WORDS = []
+
+WORD_BYPASSES = {
+    "0": [
+        "o"
+    ],
+    "1": [
+        "i"
+    ],
+    "2": [
+        "z"
+    ],
+    "3": [
+        "m",
+        "w",
+        "e"
+    ],
+    "4": [
+        "h",
+        "y",
+        "a"
+    ],
+    "5": [
+        "s"
+    ],
+    "6": [
+        "g",
+        "b"
+    ],
+    "7": [
+        "t"
+    ],
+    "8": [
+        "x",
+        "b"
+    ],
+    "9": [
+        "g",
+        "j",
+        "p"
+    ]
+}
 
 with open("banned-words.txt", "r") as f:
     BANNED_WORDS = f.read().split("\n")
@@ -24,7 +65,11 @@ intents.members = True
 intents.messages = True
 intents.message_content = True
 
-bot = commands.Bot(intents=intents)
+bot = commands.Bot(
+    intents=intents,
+    activity=discord.Activity(type=discord.ActivityType.watching, name="The Sound Cloud"),
+    status=discord.Status.do_not_disturb
+)
 
 async def commit_infractions():
     # with open("infractions.json", "w") as f:
@@ -60,25 +105,34 @@ async def warn_member(member: discord.User | discord.Member, reason: str, messag
             value=message.content
         )
 
+    embed.add_field(
+        name="Member",
+        value=f"{member.mention}"
+    )
+    embed.add_field(
+        name="Channel",
+        value=f"{message.channel.mention}"
+    )
+
     logs_channel = member.guild.get_channel(int(os.getenv("LOGS_CHANNEL", "")))
 
     await logs_channel.send(embed=embed)
 
     # Check if punishment is needed
     # len(...) + 1 is needed because len is used for indexes, and indexes start at 0, not 1.
-    if len(infractions[member.id]) + 1 == 5:
+    if len(infractions[member.id]) == 5:
         await member.timeout_for(duration=datetime.timedelta(days=1), reason="5 infractions (warns) reached")
 
-    if len(infractions[member.id]) + 1 == 3:
+    if len(infractions[member.id]) == 3:
         await member.timeout_for(duration=datetime.timedelta(hours=1), reason="3 infractions (warns) reached")
 
-    if len(infractions[member.id]) + 1 == 3 or len(infractions[member.id]) + 1 == 5:    
+    if len(infractions[member.id]) == 3 or len(infractions[member.id]) == 5:    
         embed = discord.Embed(
             title=f"[TIMEOUT] {member.name}"
         )
         embed.add_field(
             name="Reason",
-            value=f"Member reached {len(infractions[member.id]) + 1} warns"
+            value=f"Member reached {len(infractions[member.id])} warns"
         )
         await logs_channel.send(embed=embed)
 
@@ -121,6 +175,9 @@ async def on_member_join(member: discord.Member):
     await create_welcome_image(member)
 
 async def process_message(message: discord.Message):
+    if message.author.id == bot.user.id:
+        return
+
     content = message.content
 
     # Remove spoilers
@@ -136,10 +193,22 @@ async def process_message(message: discord.Message):
         return
 
     contains_banned_word = False
-    for word in BANNED_WORDS:
-        if word.lower() in content.lower():
-            contains_banned_word = True
-            break
+    filtered_content = content
+    for bypass in WORD_BYPASSES.keys():
+        for actual in WORD_BYPASSES[bypass]:
+            filtered_content = filtered_content.replace(bypass, actual)
+    
+    # print(filtered_content)
+
+    filtered_content = "".join(filter(lambda x: x in string.ascii_lowercase, filtered_content.lower())).split(" ")
+    for word in filtered_content:
+        for banned_word in BANNED_WORDS:
+            if banned_word.lower() == word or \
+                banned_word.lower() == word.replace("i", "l") or\
+                    banned_word.lower() == word.replace("m", "e"):
+                contains_banned_word = True
+                break
+        break
 
     if contains_banned_word:
         await message.delete(reason="Banned word")
@@ -155,7 +224,7 @@ async def process_message(message: discord.Message):
 
     if content.startswith("!bigboombu"):
         embed = discord.Embed(
-            description=random.choice(["Big Boombu approves", "Big Boombu disapproves"])
+            description=random.choice(["Big Boombu approves", "Big Boombu approves", "Big Boombu disapproves"])
         )
         embed.set_image(url="https://cdn-longterm.mee6.xyz/plugins/commands/images/845918445220659200/888236f2f8498c9d92111ee733936b9a29b0de61161479afcdcc6558532dc280.png")
         await message.channel.send(embed=embed)
@@ -242,6 +311,28 @@ async def unmute(ctx: discord.ApplicationContext, member: discord.Member):
         embed.description = "**Member was not muted**"
     await ctx.respond(embed=embed)
 
+@bot.slash_command(name="purge", description="Deletes a bulk amount of commands", guilds=[os.getenv("GUILD_ID", "")])
+@discord.option(
+    "count",
+    description="The amount of messages to delete",
+    required=True
+)
+@discord.default_permissions(moderate_members=True)
+async def purge(ctx: discord.ApplicationContext, count: int):
+    await ctx.channel.purge(limit=count)
+    await ctx.respond(embed=discord.Embed(description=f"**Succesfully purged {count} messages**"))
+
+@bot.slash_command(name="clear_warns", description="Clears infractions (warns) on a member", guilds=[os.getenv("GUILD_ID", "")])
+@discord.option(
+    "member",
+    description="The member whose infractions you want to remove",
+    required=True
+)
+@discord.default_permissions(moderate_members=True)
+async def clear_warns(ctx: discord.ApplicationContext, member: discord.Member):
+    del infractions[member.id]
+    await ctx.respond(embed=discord.Embed(description=f"**Succesfully cleared the warns on {member.name}**"))
+
 @bot.slash_command(name="resync", descripton="Resyncs commands")
 @discord.default_permissions(manage_guild=True)
 async def resync(ctx: discord.ApplicationContext):
@@ -271,5 +362,5 @@ class MyHelp(commands.HelpCommand):
 
 bot.help_command = MyHelp()
 
-keep_alive()
+# keep_alive()
 bot.run(os.getenv("BOT_TOKEN"))
