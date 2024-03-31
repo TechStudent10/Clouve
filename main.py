@@ -62,7 +62,7 @@ with open("responses.txt", "r") as f:
 with open("banned-words.txt", "r") as f:
     BANNED_WORDS = f.read().split("\n")
 
-dotenv.load_dotenv()
+dotenv.load_dotenv(dotenv_path="testing.env")
 
 intents = discord.Intents.default()
 intents.members = True
@@ -87,10 +87,6 @@ async def commit_infractions():
     # pass
 
 async def warn_member(member: discord.User | discord.Member, reason: str, message: discord.Message | None = None):
-    if member.bot or member.id == 349977940198555660:
-        print("bypassing warn")
-        return
-    
     if message:
         await message.delete(reason=reason)
     
@@ -193,9 +189,6 @@ async def on_member_join(member: discord.Member):
     await create_welcome_image(member)
 
 async def process_message(message: discord.Message):
-    if message.author.id == bot.user.id:
-        return
-
     content = message.content
 
     # Remove spoilers
@@ -259,17 +252,31 @@ async def process_message(message: discord.Message):
 
 @bot.event
 async def on_message(message: discord.Message):
+    if message.author.bot or message.author.id == 349977940198555660:
+        print("bypassing warn")
+        return
+    
+    if message.author.id == bot.user.id:
+        return
+
     await process_message(message)
-    # if bot.user.mention in message.content:
-    #     await message.channel.send(random.choice(RESPONSES))
+    if isinstance(message.channel, discord.DMChannel):
+        await message.channel.send(random.choice(RESPONSES))
 
 @bot.event
 async def on_message_edit(before: discord.Message, after: discord.Message):
+    if after.author.bot or after.author.id == 349977940198555660:
+        print("bypassing warn")
+        return
+    
+    if after.author.id == bot.user.id:
+        return
+        
     await process_message(after)
 
 @bot.event
 async def on_member_remove(member: discord.Member):
-    await member.guild.get_channel(int(os.getenv("WELCOME_CHANNEL", ""))).send(f"{member.mention} has left the server. Kinda freaky NGL...")
+    await member.guild.get_channel(int(os.getenv("WELCOME_CHANNEL", ""))).send(f"{member.name} has left the server. Kinda freaky NGL...")
 
 @bot.event
 async def on_member_update(before: discord.Member, after: discord.Member):
@@ -290,6 +297,16 @@ async def check_infractions():
         infractions[userID] = [x for x in infractions[userID] if time.time() < x["clears"]]
 
     await commit_infractions()
+
+@tasks.loop(minutes=30)
+async def update_status():
+    if bot.user.display_name != "Clouve Testing": return
+
+    statuses = []
+    with open("statuses.txt", "r") as f:
+        statuses = f.read().split("\n")
+    
+    bot.activity = discord.Activity(type=discord.ActivityType.custom, name=random.choice(statuses))
 
 @bot.slash_command(name="infractions", description="View the infractions (warns) for a specific member")
 @discord.option(
