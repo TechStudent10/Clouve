@@ -62,7 +62,7 @@ with open("responses.txt", "r") as f:
 with open("banned-words.txt", "r") as f:
     BANNED_WORDS = f.read().split("\n")
 
-dotenv.load_dotenv(dotenv_path="testing.env")
+dotenv.load_dotenv(dotenv_path=".env")
 
 intents = discord.Intents.default()
 intents.members = True
