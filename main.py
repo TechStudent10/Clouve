@@ -62,7 +62,7 @@ with open("responses.txt", "r") as f:
 with open("banned-words.txt", "r") as f:
     BANNED_WORDS = f.read().split("\n")
 
-dotenv.load_dotenv(dotenv_path="main.env")
+dotenv.load_dotenv(dotenv_path=".env")
 
 intents = discord.Intents.default()
 intents.members = True
@@ -154,6 +154,8 @@ def is_zalgo_text(text):
     """
     Check if the given text contains Zalgo text.
     """
+    if text == "( ͡° ͜ʖ ͡°)": #     T  H  E   L  E  N  N  Y   O  V  E  R  R  I  D  E
+        return False
     for char in text:
         if unicodedata.combining(char):
             return True
@@ -381,6 +383,69 @@ async def purge(ctx: discord.ApplicationContext, count: int):
 async def clear_warns(ctx: discord.ApplicationContext, member: discord.Member):
     del infractions[str(member.id)]
     await ctx.respond(embed=discord.Embed(description=f"**Succesfully cleared the warns on {member.name}**"))
+
+# Added by Skittey
+@bot.slash_command(name="user", description="Gives information about a user.")
+@discord.option(
+    "member",
+    description="User to get information about",
+    required=True
+)
+async def user(ctx, member: discord.Member):
+    target_user=member
+
+    embed=discord.Embed(
+        title=target_user.name
+    )
+    if target_user.avatar:
+        embed.set_thumbnail(url=str(target_user.avatar.url))
+    embed.add_field(name='Joined Discord on', value=target_user.created_at.strftime("%a %b %d %Y"), inline=False)
+    embed.add_field(name=f'Joined {ctx.guild.name} on', value=target_user.joined_at.strftime("%a %b %d %Y"), inline=False)
+    embed.add_field(name='User ID', value=str(target_user.id), inline=False)
+    embed.add_field(name=f'Roles [{len(target_user.roles)}]', value=', '.join([role.name for role in target_user.roles]), inline=False)
+    embed.set_footer(text='User Information')
+    embed.timestamp=datetime.datetime.now()
+
+    await ctx.respond(embed=embed)
+
+@bot.slash_command(name="avatar", description="Shows a user\'s avatar.")
+@discord.option(
+    "member",
+    description="User to get the avatar from",
+    required=True
+)
+async def avatar(ctx, member: discord.Member):
+    target_user=member
+
+    embed=discord.Embed(
+        title=f'{target_user.name}\'s Avatar'
+    )
+    if target_user.avatar:
+        embed.set_image(url=str(target_user.avatar.url))
+    embed.set_footer(text='User Avatar')
+    embed.timestamp=datetime.datetime.now()
+
+    await ctx.respond(embed=embed)
+
+@bot.slash_command(name="server", description="Gives information about this server.")
+async def server(ctx):
+    server=ctx.guild
+
+    embed=discord.Embed(
+        title=server.name
+    )
+    if server.icon:
+        embed.set_thumbnail(url=str(server.icon.url))
+    embed.add_field(name='Owner', value=f'<@{server.owner.id}>', inline=False)
+    embed.add_field(name='Created on', value=server.created_at.strftime("%a %b %d %Y"), inline=False)
+    embed.add_field(name='Members', value=server.member_count, inline=False)
+    embed.add_field(name=f'Server ID', value=server.id, inline=False)
+    embed.add_field(name='Channels', value=str(len(server.channels)))
+    embed.set_footer(text='Server Information')
+    embed.timestamp=datetime.datetime.now()
+
+    await ctx.respond(embed=embed)
+# End of commands added by Skittey
 
 @bot.slash_command(name="resync", descripton="Resyncs commands")
 @discord.default_permissions(manage_guild=True)
