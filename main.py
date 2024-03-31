@@ -6,6 +6,10 @@ from emoji import emoji_count
 import unicodedata, datetime, time
 from webserver import keep_alive
 
+if not os.path.exists("warns.json"):
+    with open("warns.json", "w") as f:
+        json.dump({}, f)
+
 EMOJI_LIMIT = 6
 BANNED_WORDS = []
 
@@ -50,13 +54,13 @@ WORD_BYPASSES = {
     ]
 }
 
+RESPONSES = []
+
+with open("responses.txt", "r") as f:
+    RESPONSES = f.read().split("\n")
+
 with open("banned-words.txt", "r") as f:
     BANNED_WORDS = f.read().split("\n")
-
-infractions = {}
-
-with open("infractions.json", "r") as f:
-    infractions = json.load(f)
 
 dotenv.load_dotenv()
 
@@ -71,21 +75,35 @@ bot = commands.Bot(
     status=discord.Status.do_not_disturb
 )
 
+infractions = {}
+
+with open("warns.json", "r") as f:
+    infractions = json.load(f)
+
 async def commit_infractions():
-    # with open("infractions.json", "w") as f:
-    #     json.dump(infractions, f)
-    pass
+    # print(infractions)
+    with open("warns.json", "w") as f:
+        json.dump(infractions, f)
+    # pass
 
 async def warn_member(member: discord.User | discord.Member, reason: str, message: discord.Message | None = None):
+    if member.bot or member.id == 349977940198555660:
+        print("bypassing warn")
+        return
+    
+    if message:
+        await message.delete(reason=reason)
+    
     if member.id not in infractions:
-        infractions[member.id] = []
+        infractions[str(member.id)] = []
 
-    infractions[member.id].append({
+    infractions[str(member.id)].append({
         "reason": reason,
-        "message": message,
+        "message": message.id,
         "clears": time.time() + 24 * 3600, # 24 * 3600 is an entire day in seconds
         "instanciated": time.time(),
-        "cleared": False
+        "cleared": False,
+        "channel": message.channel.id
     })
 
     await commit_infractions()
@@ -101,7 +119,7 @@ async def warn_member(member: discord.User | discord.Member, reason: str, messag
 
     if message:
         embed.add_field(
-            name="Meesage",
+            name="Message",
             value=message.content
         )
 
@@ -120,19 +138,19 @@ async def warn_member(member: discord.User | discord.Member, reason: str, messag
 
     # Check if punishment is needed
     # len(...) + 1 is needed because len is used for indexes, and indexes start at 0, not 1.
-    if len(infractions[member.id]) == 5:
+    if len(infractions[str(member.id)]) == 5:
         await member.timeout_for(duration=datetime.timedelta(days=1), reason="5 infractions (warns) reached")
 
-    if len(infractions[member.id]) == 3:
+    if len(infractions[str(member.id)]) == 3:
         await member.timeout_for(duration=datetime.timedelta(hours=1), reason="3 infractions (warns) reached")
 
-    if len(infractions[member.id]) == 3 or len(infractions[member.id]) == 5:    
+    if len(infractions[str(member.id)]) == 3 or len(infractions[str(member.id)]) == 5:    
         embed = discord.Embed(
             title=f"[TIMEOUT] {member.name}"
         )
         embed.add_field(
             name="Reason",
-            value=f"Member reached {len(infractions[member.id])} warns"
+            value=f"Member reached {len(infractions[str(member.id)])} warns"
         )
         await logs_channel.send(embed=embed)
 
@@ -184,7 +202,6 @@ async def process_message(message: discord.Message):
     content = content.replace("||", "")
 
     if is_zalgo_text(content):
-        await message.delete(reason="Zalgo usage")
         embed = discord.Embed(
             description="**Hey! Zalgo usage in messages is not permitted here.**"
         )
@@ -211,7 +228,6 @@ async def process_message(message: discord.Message):
         break
 
     if contains_banned_word:
-        await message.delete(reason="Banned word")
         embed = discord.Embed(
             description="**Warned: Message contains a blocked word**"
         )
@@ -221,20 +237,21 @@ async def process_message(message: discord.Message):
 
     content = message.clean_content
     content = content.replace("||", "")
+    # print(content)
 
     if content.startswith("!bigboombu"):
         embed = discord.Embed(
             description=random.choice(["Big Boombu approves", "Big Boombu approves", "Big Boombu disapproves"])
         )
-        embed.set_image(url="https://cdn-longterm.mee6.xyz/plugins/commands/images/845918445220659200/888236f2f8498c9d92111ee733936b9a29b0de61161479afcdcc6558532dc280.png")
-        await message.channel.send(embed=embed)
+        file = discord.File("boombu.png", filename="boombu.png")
+        embed.set_image(url="attachment://boombu.png")
+        await message.channel.send(file=file, embed=embed)
         return
 
     count = emoji_count(content) + len(re.findall(r'<:[^:<>]*:[^:<>]*>', content)) # thank you ChatGPT for the RegeX ^_^
     if count > EMOJI_LIMIT:
-        await message.delete(reason="Emoji Spam")
         embed = discord.Embed(
-            description=f"**Hey! You can only send {EMOJI_LIMIT} emojis in one message.**"
+            description=f"**Hey! You can only send up to {EMOJI_LIMIT} emojis in one message.**"
         )
         await message.channel.send(f"{message.author.mention}", embed=embed)
         await warn_member(message.author, "Emoji spam", message)
@@ -243,6 +260,8 @@ async def process_message(message: discord.Message):
 @bot.event
 async def on_message(message: discord.Message):
     await process_message(message)
+    # if bot.user.mention in message.content:
+    #     await message.channel.send(random.choice(RESPONSES))
 
 @bot.event
 async def on_message_edit(before: discord.Message, after: discord.Message):
@@ -250,7 +269,7 @@ async def on_message_edit(before: discord.Message, after: discord.Message):
 
 @bot.event
 async def on_member_remove(member: discord.Member):
-    await member.guild.get_channel(int(os.getenv("WELCOME_CHANNEL", ""))).send(f"{member.mention} has left the server. Kinda freaky NGL")
+    await member.guild.get_channel(int(os.getenv("WELCOME_CHANNEL", ""))).send(f"{member.mention} has left the server. Kinda freaky NGL...")
 
 @bot.event
 async def on_member_update(before: discord.Member, after: discord.Member):
@@ -284,8 +303,8 @@ async def list_infractions(ctx: discord.ApplicationContext, member: discord.Memb
         title=f"Infractions for {member.name}"
     )
 
-    if member.id in infractions:
-        for infraction in infractions[member.id]:
+    if str(member.id) in infractions:
+        for infraction in infractions[str(member.id)]:
             embed.add_field(
                 name=infraction["reason"],
                 value=f"Expires in {time.strftime('%H:%M:%S', time.gmtime(infraction['clears'] - time.time()))}s"
@@ -330,7 +349,7 @@ async def purge(ctx: discord.ApplicationContext, count: int):
 )
 @discord.default_permissions(moderate_members=True)
 async def clear_warns(ctx: discord.ApplicationContext, member: discord.Member):
-    del infractions[member.id]
+    del infractions[str(member.id)]
     await ctx.respond(embed=discord.Embed(description=f"**Succesfully cleared the warns on {member.name}**"))
 
 @bot.slash_command(name="resync", descripton="Resyncs commands")
