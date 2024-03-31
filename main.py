@@ -62,7 +62,7 @@ with open("responses.txt", "r") as f:
 with open("banned-words.txt", "r") as f:
     BANNED_WORDS = f.read().split("\n")
 
-dotenv.load_dotenv(dotenv_path=".env")
+dotenv.load_dotenv(dotenv_path="main.env")
 
 intents = discord.Intents.default()
 intents.members = True
@@ -83,7 +83,7 @@ with open("warns.json", "r") as f:
 async def commit_infractions():
     # print(infractions)
     with open("warns.json", "w") as f:
-        json.dump(infractions, f)
+        json.dump(infractions, f, indent=4)
     # pass
 
 async def warn_member(member: discord.User | discord.Member, reason: str, message: discord.Message | None = None):
@@ -189,6 +189,17 @@ async def on_member_join(member: discord.Member):
     await create_welcome_image(member)
 
 async def process_message(message: discord.Message):
+    if message.author.bot or message.author.id == 349977940198555660:
+        print("bypassing warn")
+        return
+    
+    if message.author.id == bot.user.id:
+        return
+    
+    role = discord.utils.find(lambda r: r.id == 845918904940232725, message.author.guild.roles)
+    if role in message.author.roles:
+        return
+
     content = message.content
 
     # Remove spoilers
@@ -259,9 +270,11 @@ async def on_message(message: discord.Message):
     if message.author.id == bot.user.id:
         return
 
-    await process_message(message)
     if isinstance(message.channel, discord.DMChannel):
+        print("dms")
         await message.channel.send(random.choice(RESPONSES))
+    else:
+        await process_message(message)
 
 @bot.event
 async def on_message_edit(before: discord.Message, after: discord.Message):
