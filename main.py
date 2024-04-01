@@ -166,9 +166,10 @@ async def create_welcome_image(member: discord.Member):
     bold_font = Font.poppins(size=20, variant="bold")
     regular_font = Font.poppins(size=12, variant="regular")
 
-    avatar = Editor(await load_image_async(str(member.avatar.url))).resize((70, 70)).circle_image()
+    if member.avatar:
+        avatar = Editor(await load_image_async(str(member.avatar.url))).resize((70, 70)).circle_image()
 
-    background.paste(avatar, (50, 40))
+        background.paste(avatar, (50, 40))
 
     background.text((270, 57), f"{member.display_name} has joined!", bold_font, color="white", align="center")
     background.text((270, 85), f"You are member #{member.guild.member_count}", regular_font, color="white", align="center")
