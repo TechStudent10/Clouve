@@ -90,7 +90,7 @@ async def warn_member(member: discord.User | discord.Member, reason: str, messag
     if message:
         await message.delete(reason=reason)
     
-    if member.id not in infractions:
+    if str(member.id) not in infractions:
         infractions[str(member.id)] = []
 
     infractions[str(member.id)].append({
@@ -154,11 +154,11 @@ def is_zalgo_text(text):
     """
     Check if the given text contains Zalgo text.
     """
-    if text == "( ͡° ͜ʖ ͡°)": #     T  H  E   L  E  N  N  Y   O  V  E  R  R  I  D  E
-        return False
-    for char in text:
-        if unicodedata.combining(char):
-            return True
+    # if text == "( ͡° ͜ʖ ͡°)": #     T  H  E   L  E  N  N  Y   O  V  E  R  R  I  D  E
+    #     return False
+    # for char in text:
+    #     if unicodedata.combining(char):
+    #         return True
     return False
 
 async def create_welcome_image(member: discord.Member):
