@@ -391,6 +391,13 @@ async def clear_warns(ctx: discord.ApplicationContext, member: discord.Member):
 async def user(ctx, member: discord.Member):
     target_user=member
 
+    role_mentions = []
+    for role in target_user.roles:
+        if role.name == '@everyone':
+            role_mentions.append('@everyone')
+        else:
+            role_mentions.append(f'<@&{role.id}>')
+
     embed=discord.Embed(
         title=target_user.name
     )
@@ -398,7 +405,7 @@ async def user(ctx, member: discord.Member):
     embed.add_field(name='Joined Discord on', value=target_user.created_at.strftime("%a %b %d %Y"), inline=False)
     embed.add_field(name=f'Joined {ctx.guild.name} on', value=target_user.joined_at.strftime("%a %b %d %Y"), inline=False)
     embed.add_field(name='User ID', value=target_user.id, inline=False)
-    embed.add_field(name=f'Roles [{len(target_user.roles)}]', value=', '.join([role.name for role in target_user.roles]), inline=False)
+    embed.add_field(name=f'Roles [{len(target_user.roles)}]', value=', '.join(role_mentions), inline=False)
     embed.set_footer(text='User Information')
     embed.timestamp=datetime.datetime.now()
 
@@ -470,4 +477,4 @@ class MyHelp(commands.HelpCommand):
 bot.help_command = MyHelp()
 
 # keep_alive()
-bot.run(os.getenv("BOT_TOKEN"))
+bot.run("MTIyNDEwMTA4NDY4ODI4OTg4Mg.GvTkKk.3XLKfLXSKH--SZHmxLWtMdE9ShupN32uQtQzno")
