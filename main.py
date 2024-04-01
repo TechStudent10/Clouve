@@ -477,4 +477,4 @@ class MyHelp(commands.HelpCommand):
 bot.help_command = MyHelp()
 
 # keep_alive()
-bot.run("MTIyNDEwMTA4NDY4ODI4OTg4Mg.GvTkKk.3XLKfLXSKH--SZHmxLWtMdE9ShupN32uQtQzno")
+bot.run(os.getenv("BOT_TOKEN"))
