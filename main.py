@@ -1,4 +1,4 @@
-import discord, re
+import discord, re, requests
 import dotenv, os, random, json, string
 from discord.ext import commands, tasks
 from easy_pil import Editor, load_image_async, Font
@@ -86,6 +86,17 @@ async def commit_infractions():
         json.dump(infractions, f, indent=4)
     # pass
 
+def extract_invite_id(text):
+    # Define regex pattern to match Discord invite links
+    pattern = r'(?:https?://)?(?:www\.)?(?:discord\.(?:com|gg)/invite/|discord\.gg/)([a-zA-Z0-9]+)'
+    # Search for the pattern in the input text
+    match = re.search(pattern, text)
+    if match:
+        # Extract and return the invite ID
+        return match.group(1)
+    else:
+        return None
+
 async def warn_member(member: discord.User | discord.Member, reason: str, message: discord.Message | None = None):
     if message:
         await message.delete(reason=reason)
@@ -128,6 +139,16 @@ async def warn_member(member: discord.User | discord.Member, reason: str, messag
         value=f"{message.channel.mention}"
     )
 
+    print(message.content)
+    if extract_invite_id(message.content):
+        invite_id = extract_invite_id(message.content)
+        invite_guild = requests.get(f"https://discordapp.com/api/v6/invites/{invite_id}").json()
+
+        embed.add_field(
+            name="Invited server name",
+            value=f"{invite_guild["guild"]["name"]}"
+        )
+
     logs_channel = member.guild.get_channel(int(os.getenv("LOGS_CHANNEL", "")))
 
     await logs_channel.send(embed=embed)
@@ -164,15 +185,18 @@ def is_zalgo_text(text):
 async def create_welcome_image(member: discord.Member):
     background = Editor("welcome-bg.png")
     bold_font = Font.poppins(size=20, variant="bold")
+    smaller_bold_font = Font.poppins(size=15, variant="bold")
     regular_font = Font.poppins(size=12, variant="regular")
 
+    text_x = 250
     if member.avatar:
+        text_x = 270
         avatar = Editor(await load_image_async(str(member.avatar.url))).resize((70, 70)).circle_image()
 
         background.paste(avatar, (50, 40))
 
-    background.text((270, 57), f"{member.display_name} has joined!", bold_font, color="white", align="center")
-    background.text((270, 85), f"You are member #{member.guild.member_count}", regular_font, color="white", align="center")
+    background.text((text_x, 57), f"{member.display_name} has joined!", bold_font if len(member.display_name) <= 20 else smaller_bold_font, color="white", align="center")
+    background.text((text_x, 85), f"You are member #{member.guild.member_count}", regular_font, color="white", align="center")
 
     file = discord.File(background.image_bytes, filename="welcome.jpg")
 
@@ -199,14 +223,21 @@ async def process_message(message: discord.Message):
     if message.author.id == bot.user.id:
         return
     
-    role = discord.utils.find(lambda r: r.id == 845918904940232725, message.author.guild.roles)
-    if role in message.author.roles:
+    storm_role = discord.utils.find(lambda r: r.id == 845918904940232725, message.author.guild.roles)
+    if storm_role in message.author.roles:
         return
 
     content = message.content
 
     # Remove spoilers
     content = content.replace("||", "")
+
+    # Check if it's a discord.gg link (except for adverts)
+    if str(message.channel.id) != os.getenv("ADVERTS_CHANNEL") and extract_invite_id(content):
+        await warn_member(message.author, "Invite link outside general", message)
+        await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
+            description="**Hey! Discord Invite links go in adverts**"
+        ))
 
     if is_zalgo_text(content):
         embed = discord.Embed(
@@ -478,4 +509,5 @@ class MyHelp(commands.HelpCommand):
 bot.help_command = MyHelp()
 
 # keep_alive()
+bot.load_extension("cogs.music")
 bot.run(os.getenv("BOT_TOKEN"))

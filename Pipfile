@@ -8,6 +8,8 @@ py-cord = "*"
 pillow = "*"
 easy-pil = "*"
 flask = "*"
+yt-dlp = "*"
+pynacl = "*"
 
 [dev-packages]
 
