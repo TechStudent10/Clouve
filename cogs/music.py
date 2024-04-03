@@ -21,7 +21,7 @@ class Music(commands.Cog):
             }
         ) as ydl:
             ydl.download([
-                f"https://youtube.com/watch?v={self.queue[0]["id"]}"
+                f"https://youtube.com/watch?v={self.queue[0]['id']}"
             ])
             
             self.vc.play(
@@ -84,8 +84,8 @@ class Music(commands.Cog):
         for item_index in range(len(self.queue)):
             item = self.queue[item_index]
             embed.add_field(
-                name=f"{item_index + 1}. {item["name"]}",
-                value=f"Added by {item["added_by"].display_name}",
+                name=f"{item_index + 1}. {item['name']}",
+                value=f"Added by {item['added_by'].display_name}",
                 inline=False
             )
         await ctx.respond(
