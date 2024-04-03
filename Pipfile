@@ -12,6 +12,7 @@ yt-dlp = "*"
 pynacl = "*"
 python-dotenv = "*"
 emoji = "*"
+tinytag = "*"
 
 [dev-packages]
 
