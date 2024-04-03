@@ -146,7 +146,7 @@ async def warn_member(member: discord.User | discord.Member, reason: str, messag
 
         embed.add_field(
             name="Invited server name",
-            value=f"{invite_guild["guild"]["name"]}"
+            value=f"{invite_guild['guild']['name']}"
         )
 
     logs_channel = member.guild.get_channel(int(os.getenv("LOGS_CHANNEL", "")))
