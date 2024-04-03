@@ -9,7 +9,8 @@ class Music(commands.Cog):
         self.queue: List[Any] = []
 
     def play(self):
-        os.remove("audio.m4a")
+        if os.path.exists("audio.m4a"):
+            os.remove("audio.m4a")
         with YoutubeDL(
             {
                 'outtmpl': {'default': 'audio.m4a'},
