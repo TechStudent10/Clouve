@@ -13,6 +13,7 @@ pynacl = "*"
 python-dotenv = "*"
 emoji = "*"
 tinytag = "*"
+youtube-search-python = "*"
 
 [dev-packages]
 

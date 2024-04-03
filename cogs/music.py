@@ -1,7 +1,8 @@
 from typing import Any, List
-import discord, os, time, threading
+import discord, os, time, re, json
 from discord.ext import commands
 from yt_dlp import YoutubeDL
+from youtubesearchpython import VideosSearch, ResultMode
 from .kthread import KThread
 from tinytag import TinyTag
 
@@ -89,19 +90,51 @@ class Music(commands.Cog):
 
 
     def _add_to_queue(self, song: str, author: discord.User):
-        with YoutubeDL({'format': 'bestaudio', 'noplaylist':'True'}) as ydl:
-            results = ydl.extract_info(f"ytsearch:{song}", download=False)["entries"][0:5]
-            first_result = results[0]
-            if self.vc:
-                self.queue.append({
-                    "id": first_result["id"],
-                    "name": first_result["title"],
-                    "added_by": author
-                })
+        # with YoutubeDL({'format': 'bestaudio', 'noplaylist':'True'}) as ydl:
+        #     results = ydl.extract_info(f"ytsearch:{song}", download=False)["entries"][0:5]
+        #     first_result = results[0]
+        #     if self.vc:
+        #         self.queue.append({
+        #             "id": first_result["id"],
+        #             "name": first_result["title"],
+        #             "added_by": author
+        #         })
 
-            if len(self.queue) == 1:
-                self.current_process = KThread(target=self.play)
-                self.current_process.start()
+        search = VideosSearch(song, limit=1)
+        _result = search.result()
+        result = {}
+        if isinstance(_result, str):
+            result = json.loads(_result)
+        elif isinstance(_result, dict):
+            result = _result
+        
+        self.queue.append({
+            "id": self.extract_youtube_video_id(
+                result["result"][0]["link"]
+            ),
+            "name": result["result"][0]["title"],
+            "added_by": author
+        })
+
+        if len(self.queue) == 1:
+            self.current_process = KThread(target=self.play)
+            self.current_process.start()
+
+    
+    def is_youtube_link(self, link: str):
+        # Regular expression pattern to match YouTube URLs
+        pattern = r'(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)'
+        match = re.match(pattern, link)
+        return match is not None
+    
+    def extract_youtube_video_id(self, link: str):
+        # Regular expression pattern to match YouTube URLs
+        pattern = r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]+)'
+        match = re.search(pattern, link)
+        if match:
+            return match.group(1)
+        else:
+            return None
 
 
     @discord.slash_command(name="queue", description="Displays the current music queue", guild_ids=[
