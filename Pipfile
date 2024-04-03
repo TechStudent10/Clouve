@@ -10,6 +10,7 @@ easy-pil = "*"
 flask = "*"
 yt-dlp = "*"
 pynacl = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
