@@ -509,5 +509,5 @@ class MyHelp(commands.HelpCommand):
 bot.help_command = MyHelp()
 
 # keep_alive()
-# bot.load_extension("cogs.music")
+bot.load_extension("cogs.music")
 bot.run(os.getenv("BOT_TOKEN"))

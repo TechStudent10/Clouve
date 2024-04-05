@@ -1,8 +1,8 @@
 from typing import Any, List
-import discord, os, time, re, json
+import discord, os, time, re, json, math, random
 from discord.ext import commands
 from yt_dlp import YoutubeDL
-from youtubesearchpython import VideosSearch, ResultMode
+from youtubesearchpython import VideosSearch
 from .kthread import KThread
 from tinytag import TinyTag
 
@@ -16,14 +16,25 @@ class Music(commands.Cog):
         self.votes = 0
         self.voters = []
         self.locked = False
+        self.current_song: dict | None = None
+        self.skip_scores = {}
+        self.music_timeouts = {}
 
-    def play(self):
+    def play(self, error: Exception | None = None):
         if os.path.exists("audio.m4a"):
             os.remove("audio.m4a")
 
+        for skip_score_user in self.skip_scores.keys():
+            skip_score = self.skip_scores[skip_score_user]
+            if skip_score_user not in self.voters and skip_score != 0:
+                self.skip_scores[skip_score_user] -= 1
+
         print(len(self.queue))
         if len(self.queue) == 0:
+            self.current_song = None
             return
+
+        self.current_song = self.queue[0]
         
         with YoutubeDL(
             {
@@ -35,22 +46,17 @@ class Music(commands.Cog):
                 }]
             }
         ) as ydl:
-            if len(self.queue) != 0:
-                ydl.download([
-                    f"https://youtube.com/watch?v={self.queue[0]['id']}"
-                ])
-                
-                self.started_playing = time.time()
-                self.votes = 0
-                self.voters = []
-                self.vc.play(
-                    discord.FFmpegPCMAudio("audio.m4a"), after=self.play_next_in_queue  
-                )
-
-    def play_next_in_queue(self, error):
-        if len(self.queue) != 0:
+            ydl.download([
+                f"https://youtube.com/watch?v={self.current_song['id']}"
+            ])
+            
+            self.started_playing = time.time()
+            self.votes = 0
+            self.voters = []
+            self.vc.play(
+                discord.FFmpegPCMAudio("audio.m4a"), after=self.play  
+            )
             self.queue.pop(0)
-            self.play()
 
     @discord.slash_command(name="play", description="Plays a song or adds a song to the queue if one is already playing", guild_ids=[
         int(os.getenv("GUILD_ID", ""))
@@ -61,16 +67,29 @@ class Music(commands.Cog):
         required=True
     )
     async def add_to_queue(self, ctx: discord.ApplicationContext, song: str):
+        if await self.check_timeout(ctx.author):
+            await ctx.respond("You're on music timeout! Try again later", ephemeral=True)
+            return
+        
         await ctx.defer()
+        in_vc = True
         if discord.utils.get(self.bot.voice_clients, guild=ctx.guild) == None:
             vc = ctx.author.voice
             if vc:
-                self.vc = await vc.channel.connect()
+                self.channel = vc.channel
+                self.vc = await self.channel.connect()
             else:
                 await ctx.followup.send(embed=discord.Embed(
                     description="**Enter a voice channel before using this command**"
                 ))
+                in_vc = False
                 return
+
+        if not in_vc:
+            await ctx.followup.send(embed=discord.Embed(
+                description="**You must be in a Voice Channel to add songs to the queue**"
+            ))
+            return
 
         if self.locked:
             await ctx.followup.send(
@@ -80,13 +99,43 @@ class Music(commands.Cog):
             )
             return
 
-        self.queue_process = KThread(target=self._add_to_queue, args=(
-            song, ctx.author
-        )).start()
+        # self.queue_process = KThread(target=self._add_to_queue, args=(
+        #     song, ctx.author
+        # )).start()
+
+        search = VideosSearch(song, limit=1)
+        _result = search.result()
+        result = {}
+        if isinstance(_result, str):
+            result = json.loads(_result)
+        elif isinstance(_result, dict):
+            result = _result
+        
+        video = result["result"][0]
+
+        times: List[str] = video["duration"].split(":")
+        if len(times) > 2 or int(times[0]) > 15:
+            await ctx.followup.send(embed=discord.Embed(
+                description="**The length limit for songs is 15 minutes. If the selected song is a collection of many separate songs (e.g. albums or EPs), then try adding each individual song.**"
+            ))
+            return
+
+        self.queue.append({
+            "id": self.extract_youtube_video_id(
+                video["link"]
+            ),
+            "name": video["title"],
+            "added_by": ctx.author
+        })
 
         await ctx.followup.send(embed=discord.Embed(
-            description=f"**Added song to the queue**"
+            description=f"**Added \"{video['title']}\" to the queue at position {len(self.queue)}**"
         ))
+
+        if self.current_song is None:
+            self.current_process = KThread(target=self.play)
+            self.current_process.start()
+
 
 
     def _add_to_queue(self, song: str, author: discord.User):
@@ -100,25 +149,7 @@ class Music(commands.Cog):
         #             "added_by": author
         #         })
 
-        search = VideosSearch(song, limit=1)
-        _result = search.result()
-        result = {}
-        if isinstance(_result, str):
-            result = json.loads(_result)
-        elif isinstance(_result, dict):
-            result = _result
-        
-        self.queue.append({
-            "id": self.extract_youtube_video_id(
-                result["result"][0]["link"]
-            ),
-            "name": result["result"][0]["title"],
-            "added_by": author
-        })
-
-        if len(self.queue) == 1:
-            self.current_process = KThread(target=self.play)
-            self.current_process.start()
+        pass
 
     
     def is_youtube_link(self, link: str):
@@ -162,6 +193,10 @@ class Music(commands.Cog):
         description="The song to remove's position in the queue"
     )
     async def remove_from_queue(self, ctx: discord.ApplicationContext, _song: int):
+        if await self.check_timeout(ctx.author):
+            await ctx.respond("You're on music timeout! Try again later", ephemeral=True)
+            return
+        
         song_index = _song - 1
         if song_index <= 0:
             await ctx.respond(embed=discord.Embed(
@@ -183,7 +218,7 @@ class Music(commands.Cog):
         int(os.getenv("GUILD_ID", ""))
     ])
     async def now_playing(self, ctx: discord.ApplicationContext):
-        if len(self.queue) == 0:
+        if self.current_song is None or not os.path.exists("audio.m4a"):
             await ctx.respond(embed=discord.Embed(
                 description="**Nothing playing!**"
             ))
@@ -193,11 +228,12 @@ class Music(commands.Cog):
         remaining = time.strftime('%M:%S', time.gmtime(TinyTag.get('audio.m4a').duration - (time.time() - self.started_playing)))
 
         embed = discord.Embed(
-            title=f"{self.queue[0]['name']}",
+            title=f"{self.current_song['name']}",
             description=f"{elapsed}s elasped - {remaining}s remaining"
         )
 
         outter_self = self
+        votes_required = int(math.ceil(len(self.channel.members) * 0.7))
 
         class SkipView(discord.ui.View):
             @discord.ui.button(
@@ -209,15 +245,31 @@ class Music(commands.Cog):
                     await interaction.channel.send("You've already voted!")
                     return
                 
-                if interaction.user.id == outter_self.queue[0]["added_by"].id:
-                    outter_self.votes += 3
+                if await outter_self.check_timeout(interaction.user):
+                    await interaction.channel.send("You're on music timeout! Try again later")
+                    return
+                
+                if interaction.user.id == outter_self.current_song["added_by"].id or \
+                    discord.utils.get(ctx.guild.roles, id=845918904940232725) in interaction.user.roles:
+                    outter_self.votes += votes_required
                 else:
                     outter_self.votes += 1
+                    if interaction.user.id not in outter_self.skip_scores:
+                        outter_self.skip_scores[interaction.user.id] = 0
+                    
+                    outter_self.skip_scores[interaction.user.id]+=1
 
+                for skip_score_user in outter_self.skip_scores.keys():
+                    skip_score = outter_self.skip_scores[skip_score_user]
+                    if skip_score >= 5:
+                        outter_self.music_timeouts[interaction.user.id] = time.time()
+                        await interaction.channel.send(f"{interaction.user.mention}", embed=discord.Embed(
+                            description="**Hey! You've been skipping a lot of songs and have been placed on Music Timeout. Think about your actions for the next 10 minutes as you will not be able to add nor remove songs from the queue and you will, of course, be not allowed to vote skip songs.**"
+                        ))
 
                 outter_self.voters.append(interaction.user.id)
 
-                if outter_self.votes >= 3:
+                if outter_self.votes >= votes_required:
                     await interaction.channel.send("Skipping song!")
                     outter_self.current_process.kill()
                     outter_self.vc.stop()
@@ -229,9 +281,19 @@ class Music(commands.Cog):
                     button.label = "Song has been skipped"
                     await interaction.response.edit_message(embed=embed, view=self)
                 else:
-                    await interaction.channel.send("Vote cast!")
+                    await interaction.channel.send(f"{interaction.user.mention} Vote cast! {votes_required - outter_self.votes} needed to skip!")
 
         await ctx.respond(embed=embed, view=SkipView())
+
+    async def check_timeout(self, member: discord.Member | discord.User | None):
+        is_on_timeout = False
+        if member.id in self.music_timeouts:
+            if (time.time() - self.music_timeouts[member.id]) < 10 * 60: # 10 * 60 is 10 minutes converted to seconds
+                is_on_timeout = True
+            else:
+                del self.music_timeouts[member.id]
+
+        return is_on_timeout
 
     @discord.slash_command(name="lock_queue", description="Locks the queue", guild_ids=[
         int(os.getenv("GUILD_ID", ""))
@@ -299,6 +361,46 @@ class Music(commands.Cog):
         await ctx.respond(embed=discord.Embed(
             description="**Moved VC succesfully**"
         ))
+
+    @discord.slash_command(name="clear_music_timeout", description="Clears a music timeout on a member", guild_ids=[
+        int(os.getenv("GUILD_ID", ""))
+    ])
+    @discord.default_permissions(moderate_members=True)
+    @discord.option(
+        name="member",
+        description="The member whose timeout you want to clear"
+    )
+    async def clear_music_timeout(self, ctx: discord.ApplicationContext, member: discord.Member):
+        if member.id in self.music_timeouts:
+            del self.music_timeouts[member.id]
+
+            await ctx.respond(embed=discord.Embed(
+                description=f"**Cleared {member.name} timeout succesfully**"
+            ))
+        else:
+            await ctx.respond(embed=discord.Embed(
+                description=f"**User \"{member.name}\" did not have any timeout**"
+            ))
+
+    @discord.slash_command(name="shuffle", description="Shuffles the queue", guild_ids=[
+        int(os.getenv("GUILD_ID", ""))
+    ])
+    @commands.cooldown(1, 5 * 60)
+    async def shuffle_queue(self, ctx: discord.ApplicationContext):
+        if await self.check_timeout(ctx.author):
+            await ctx.respond("You're on music timeout! Try again later", ephemeral=True)
+            return
+        
+        random.shuffle(self.queue)
+        await ctx.respond(embed=discord.Embed(
+            description="**Shuffled the queue!**"
+        ))
+
+    @shuffle_queue.error
+    async def on_shuffle_error(self, interaction: discord.Interaction, error: discord.errors.ApplicationCommandError):
+        await interaction.response.send_message(embed=discord.Embed(
+            description=f"**{str(error)}**"
+        ), ephemeral=True)
 
 
 def setup(bot):
