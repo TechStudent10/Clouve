@@ -38,6 +38,8 @@ class Guess(commands.Cog):
         self.current_channel_id = 0
         self.still_guessing = False
 
+        self.in_command = False
+
         self.load_levels()
 
     def load_levels(self):
@@ -55,6 +57,9 @@ class Guess(commands.Cog):
         autocomplete=diff_autocomplete
     )
     async def guess(self, ctx: discord.ApplicationContext, _diff: str):
+        if self.in_command:
+            return
+        self.in_command = True
         if self.still_guessing:
             await ctx.respond("**Level guessing already in progress. Please try again later.**", ephemeral=True)
             return 
