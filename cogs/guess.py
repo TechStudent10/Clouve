@@ -36,6 +36,7 @@ class Guess(commands.Cog):
         self.levels: dict[str, list[dict]] = {}
         self.current_level: dict | None = None
         self.current_channel_id = 0
+        self.still_guessing = False
 
         self.load_levels()
 
@@ -54,10 +55,12 @@ class Guess(commands.Cog):
         autocomplete=diff_autocomplete
     )
     async def guess(self, ctx: discord.ApplicationContext, _diff: str):
-        if self.current_level is not None:
+        if self.still_guessing:
             await ctx.respond("**Level guessing already in progress. Please try again later.**", ephemeral=True)
             return 
         
+        self.still_guessing = True
+
         difficulty = DIFFICULTIES[_diff]
         levels = self.levels[str(difficulty)]
         lvl = random.choice(levels)
@@ -74,16 +77,15 @@ class Guess(commands.Cog):
         await ctx.respond(embed=embed, file=image)
 
         await asyncio.sleep(45.0)
-        if self.current_level is None:
+        if not self.still_guessing:
             return
-        if self.current_level["id"] != lvl["id"]:
-            return
-            
+
         await ctx.send(embed=discord.Embed(
             description="**You didn't respond in time!**"
         ))
         self.current_level = None
         self.current_channel_id = 0
+        self.still_guessing = False
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -93,7 +95,7 @@ class Guess(commands.Cog):
         if self.bot.user.mention not in message.content:
             return
         
-        if self.current_level is None:
+        if not self.still_guessing:
             return
         
         answer = message.content.replace(self.bot.user.mention, "").lstrip()
@@ -103,6 +105,7 @@ class Guess(commands.Cog):
             ))
             self.current_level = None
             self.current_channel_id = 0
+            self.still_guessing = False
 
 def setup(bot):
     bot.add_cog(Guess(bot))
