@@ -57,9 +57,9 @@ class Guess(commands.Cog):
         autocomplete=diff_autocomplete
     )
     async def guess(self, ctx: discord.ApplicationContext, _diff: str):
-        if self.in_command:
-            return
-        self.in_command = True
+        # if self.in_command:
+        #     return
+        # self.in_command = True
         if self.still_guessing:
             await ctx.respond("**Level guessing already in progress. Please try again later.**", ephemeral=True)
             return 
@@ -85,9 +85,6 @@ class Guess(commands.Cog):
 
         await asyncio.sleep(45.0)
         if not self.still_guessing:
-            return
-        
-        if self.current_level is None:
             return
         
         if self.current_level["id"] != lvl["id"]:
