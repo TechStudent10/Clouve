@@ -86,6 +86,12 @@ class Guess(commands.Cog):
         await asyncio.sleep(45.0)
         if not self.still_guessing:
             return
+        
+        if self.current_level is None:
+            return
+        
+        if self.current_level["id"] != lvl["id"]:
+            return
 
         await ctx.send(embed=discord.Embed(
             description="**You didn't respond in time!**"
