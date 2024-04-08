@@ -234,10 +234,11 @@ async def process_message(message: discord.Message):
 
     # Check if it's a discord.gg link (except for adverts)
     if str(message.channel.id) != os.getenv("ADVERTS_CHANNEL") and extract_invite_id(content):
-        await warn_member(message.author, "Invite link outside general", message)
+        await warn_member(message.author, "Invite link outside adverts", message)
         await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
             description="**Hey! Discord Invite links go in adverts**"
         ))
+        return
 
     if is_zalgo_text(content):
         embed = discord.Embed(
@@ -509,5 +510,12 @@ class MyHelp(commands.HelpCommand):
 bot.help_command = MyHelp()
 
 # keep_alive()
-bot.load_extension("cogs.music")
+cogs = [
+    "guess",
+    "music"
+]
+
+for cog in cogs:
+    bot.load_extension(f"cogs.{cog}")
+
 bot.run(os.getenv("BOT_TOKEN"))

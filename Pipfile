@@ -14,6 +14,7 @@ python-dotenv = "*"
 emoji = "*"
 tinytag = "*"
 youtube-search-python = "*"
+dacite = "*"
 
 [dev-packages]
 
