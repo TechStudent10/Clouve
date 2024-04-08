@@ -81,7 +81,7 @@ class Guess(commands.Cog):
         embed.set_image(url="attachment://file.png")
         await ctx.respond(embed=embed, file=image)
 
-        self.still_guessing = False
+        self.in_command = False
 
         await asyncio.sleep(45.0)
         if not self.still_guessing:
