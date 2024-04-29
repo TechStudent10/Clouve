@@ -24,7 +24,7 @@ class Level:
     diff: int
 
 async def diff_autocomplete(ctx: discord.AutocompleteContext):
-    return list(DIFFICULTIES.keys())
+    return ["Random"] + list(DIFFICULTIES.keys())
 
 # group = discord.SlashCommandGroup("guess", "Guess the AudieoVisual level!", guild_ids=[
 #     int(os.getenv("GUILD_ID", ""))
@@ -64,9 +64,12 @@ class Guess(commands.Cog):
             await ctx.respond("**Level guessing already in progress. Please try again later.**", ephemeral=True)
             return 
         
-        self.still_guessing = True
 
-        difficulty = DIFFICULTIES[_diff]
+        if _diff == "Random":
+            difficulty = DIFFICULTIES[random.choice(list(DIFFICULTIES.keys()))]
+        else:
+            difficulty = DIFFICULTIES[_diff]
+        
         levels = self.levels[str(difficulty)]
         lvl = random.choice(levels)
         lvl["id"] = random.randint(0, 1000)
@@ -79,12 +82,11 @@ class Guess(commands.Cog):
         )
         image = discord.File(os.path.join(os.getcwd(), "guess", "levels", self.current_level["name"], self.current_level["file"]), "file.png")
         embed.set_image(url="attachment://file.png")
+        self.still_guessing = True
         await ctx.respond(embed=embed, file=image)
 
-        self.in_command = False
-
-        await asyncio.sleep(45.0)
-        if not self.still_guessing:
+        await asyncio.sleep(25.0)
+        if self.still_guessing == False:
             return
         
         if self.current_level["id"] != lvl["id"]:

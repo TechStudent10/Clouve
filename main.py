@@ -256,15 +256,19 @@ async def process_message(message: discord.Message):
     
     # print(filtered_content)
 
-    filtered_content = "".join(filter(lambda x: x in string.ascii_lowercase, filtered_content.lower())).split(" ")
+    # converts thing like the freaky font into regular ASCII to be analyzed
+    filtered_content = filtered_content.lower().split(" ")
+    # print(filtered_content)
     for word in filtered_content:
+        word = unicodedata.normalize("NFKC", word)
+        # print(word)
         for banned_word in BANNED_WORDS:
             if banned_word.lower() == word or \
                 banned_word.lower() == word.replace("i", "l") or\
                     banned_word.lower() == word.replace("m", "e"):
                 contains_banned_word = True
                 break
-        break
+        # break
 
     if contains_banned_word:
         embed = discord.Embed(
