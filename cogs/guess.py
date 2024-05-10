@@ -10,6 +10,13 @@ DIFFICULTIES = {
     "Extreme": 4
 }
 
+REVERSE_DIFFICULTIES = {
+    1: "Easy",
+    2: "Medium",
+    3: "Hard",
+    4: "Extreme"
+}
+
 @dataclass
 class Level:
     # Name of the level / The answer to the guess
@@ -78,8 +85,10 @@ class Guess(commands.Cog):
         self.current_channel_id = ctx.channel_id
 
         embed = discord.Embed(
-            title="Guess the level!"
+            title="Guess the level!",
+            description=f"Difficulty: {REVERSE_DIFFICULTIES[difficulty]}"
         )
+        embed.set_footer(text="Ping Clouve with your answer to guess!")
         image = discord.File(os.path.join(os.getcwd(), "guess", "levels", self.current_level["name"], self.current_level["file"]), "file.png")
         embed.set_image(url="attachment://file.png")
         self.still_guessing = True
@@ -111,6 +120,7 @@ class Guess(commands.Cog):
             return
         
         answer = message.content.replace(self.bot.user.mention, "").lstrip()
+        
         if answer.lower() == self.current_level["name"].lower():
             await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
                 description=f"**Correct! The answer was \"{self.current_level['name']}\"**"

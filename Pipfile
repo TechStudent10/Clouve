@@ -19,3 +19,6 @@ dacite = "*"
 
 [requires]
 python_version = "3.12"
+
+[scripts]
+dev = "python main.py"
