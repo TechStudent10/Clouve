@@ -44,6 +44,9 @@ class Guess(commands.Cog):
         self.current_level: dict | None = None
         self.current_channel_id = 0
         self.still_guessing = False
+        self._diff = 0
+
+        self.current_context: discord.ApplicationContext | None = None
 
         self.in_command = False
 
@@ -52,6 +55,19 @@ class Guess(commands.Cog):
     def load_levels(self):
         with open(os.path.join(os.getcwd(), "guess", "levels.json")) as f:
             self.levels: dict[str, list[dict]] = json.load(f)
+        
+        levels_v2_path = os.path.join(os.getcwd(), "guess", "levels-v2")
+        for intdiff in os.listdir(levels_v2_path):
+            levels_of_diff = os.listdir(os.path.join(levels_v2_path, intdiff))
+            for levelname in levels_of_diff:
+                files = os.listdir(os.path.join(levels_v2_path, intdiff, levelname))
+                for filename in files:
+                    self.levels[str(intdiff)].append({
+                        "name": levelname,
+                        "file": filename,
+                        "diff": int(intdiff),
+                        "v2": True
+                    })
 
     @discord.slash_command(
         name="guess", guild_ids=[
@@ -76,6 +92,9 @@ class Guess(commands.Cog):
             return 
         
 
+        self.current_context = ctx
+        self._diff = _diff
+
         if _diff == "Random":
             difficulty = DIFFICULTIES[random.choice(list(DIFFICULTIES.keys()))]
         else:
@@ -88,10 +107,6 @@ class Guess(commands.Cog):
 
         self.current_channel_id = ctx.channel_id
 
-        class RestartView(discord.ui.View):
-            @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
-            async def new_game(self, button: discord.Button, interaction: discord.Interaction):
-                pass
 
 
         embed = discord.Embed(
@@ -99,7 +114,12 @@ class Guess(commands.Cog):
             description=f"Difficulty: {REVERSE_DIFFICULTIES[difficulty]}"
         )
         embed.set_footer(text="Ping Clouve with your answer to guess!")
-        image = discord.File(os.path.join(os.getcwd(), "guess", "levels", self.current_level["name"], self.current_level["file"]), "file.png")
+        file_path = os.path.join(os.getcwd(), "guess", "levels", self.current_level["name"], self.current_level["file"])
+        if "v2" in self.current_level:
+            if self.current_level["v2"]:
+                file_path = os.path.join(os.getcwd(), "guess", "levels-v2", str(self.current_level["diff"]), self.current_level["name"], self.current_level["file"])
+
+        image = discord.File(file_path, "file.png")
         embed.set_image(url="attachment://file.png")
         self.still_guessing = True
         og_msg = await ctx.respond(embed=embed, file=image)
@@ -111,25 +131,34 @@ class Guess(commands.Cog):
         if self.current_level["id"] != lvl["id"]:
             return
 
+        command = self.guess
+
+        class RestartView(discord.ui.View):
+            @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
+            async def new_game(self, button: discord.Button, interaction: discord.Interaction):
+                await ctx.invoke(command, _diff=_diff)
+
         await ctx.send(embed=discord.Embed(
             description="**You didn't respond in time!**"
-        ))
-        self.current_level = None
-        self.current_channel_id = 0
-        self.still_guessing = False
+        ), view=RestartView())
+
+        self.reset()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         is_answer = False
         if message.channel.id != self.current_channel_id:
             return
-            
+
         if not self.still_guessing:
             return
         
         if self.current_level is None:
             return
         
+        if self.current_context is None:
+            return
+
         # long and complex way to check if it's a reply to a Clouve message
         if message.reference is not None and not message.is_system() and message.reference.cached_message.author.id == self.bot.user.id:
             is_answer = True
@@ -144,12 +173,27 @@ class Guess(commands.Cog):
         answer = message.content.replace(self.bot.user.mention, "").lstrip()
 
         if answer.lower() == self.current_level["name"].lower():
+            command = self.guess
+            ctx = self.current_context
+            _diff = self._diff
+
+            class RestartView(discord.ui.View):
+                @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
+                async def new_game(self, button: discord.Button, interaction: discord.Interaction):
+                    await ctx.invoke(command, _diff=_diff)
+
             await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
                 description=f"**Correct! The answer was \"{self.current_level['name']}\"**"
-            ))
-            self.current_level = None
-            self.current_channel_id = 0
-            self.still_guessing = False
+            ), view=RestartView())
+            
+            self.reset()
+
+    def reset(self):
+        self.current_level = None
+        self.current_channel_id = 0
+        self.still_guessing = False
+        self.current_context = None
+        self._diff = ""
 
 def setup(bot):
     bot.add_cog(Guess(bot))
