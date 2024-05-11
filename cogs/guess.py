@@ -64,6 +64,10 @@ class Guess(commands.Cog):
         autocomplete=diff_autocomplete
     )
     async def guess(self, ctx: discord.ApplicationContext, _diff: str):
+        if str(ctx.channel_id) != os.getenv("GUESSING_CHANNEL"):
+            await ctx.respond(f"**Level guessing is disabled in channels besides <#{os.getenv('GUESSING_CHANNEL')}>. Please go there for level guessing.**", ephemeral=True)
+            return
+
         # if self.in_command:
         #     return
         # self.in_command = True
@@ -84,6 +88,12 @@ class Guess(commands.Cog):
 
         self.current_channel_id = ctx.channel_id
 
+        class RestartView(discord.ui.View):
+            @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
+            async def new_game(self, button: discord.Button, interaction: discord.Interaction):
+                pass
+
+
         embed = discord.Embed(
             title="Guess the level!",
             description=f"Difficulty: {REVERSE_DIFFICULTIES[difficulty]}"
@@ -92,7 +102,7 @@ class Guess(commands.Cog):
         image = discord.File(os.path.join(os.getcwd(), "guess", "levels", self.current_level["name"], self.current_level["file"]), "file.png")
         embed.set_image(url="attachment://file.png")
         self.still_guessing = True
-        await ctx.respond(embed=embed, file=image)
+        og_msg = await ctx.respond(embed=embed, file=image)
 
         await asyncio.sleep(25.0)
         if self.still_guessing == False:
@@ -110,17 +120,29 @@ class Guess(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        is_answer = False
         if message.channel.id != self.current_channel_id:
             return
-        
-        if self.bot.user.mention not in message.content:
-            return
-        
+            
         if not self.still_guessing:
             return
         
-        answer = message.content.replace(self.bot.user.mention, "").lstrip()
+        if self.current_level is None:
+            return
         
+        # long and complex way to check if it's a reply to a Clouve message
+        if message.reference is not None and not message.is_system() and message.reference.cached_message.author.id == self.bot.user.id:
+            is_answer = True
+        
+        if self.bot.user.mention in message.content:
+            is_answer = True
+        
+        
+        if not is_answer:
+            return
+
+        answer = message.content.replace(self.bot.user.mention, "").lstrip()
+
         if answer.lower() == self.current_level["name"].lower():
             await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
                 description=f"**Correct! The answer was \"{self.current_level['name']}\"**"
