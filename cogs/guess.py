@@ -188,6 +188,18 @@ class Guess(commands.Cog):
             
             self.reset()
 
+    @discord.slash_command(
+        name="reset_game", description="[MODERATOR ONLY] Only use command when bot breaks", guild_ids=[
+            int(os.getenv("GUILD_ID", ""))
+        ]
+    )
+    @discord.default_permissions(moderate_members=True)
+    async def reset_game(self, ctx: discord.ApplicationContext):
+        self.reset()
+        await ctx.respond(
+            "**Game successfully reset**"
+        )
+
     def reset(self):
         self.current_level = None
         self.current_channel_id = 0
