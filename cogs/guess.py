@@ -305,12 +305,14 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
     async def on_message(self, message: discord.Message):
         is_answer = False
         if str(message.channel.id) not in os.getenv("GUESSING_CHANNEL", "").split(","):
+            print("did not pass channel check")
             return
 
         if not self.still_guessing:
+            print("not self.guessing")
             return
         
-        if message.channel.id in self.current_levels:
+        if message.channel.id not in self.current_levels:
             return
         
         if self.current_context is None:
