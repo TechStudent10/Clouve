@@ -17,6 +17,14 @@ REVERSE_DIFFICULTIES = {
     4: "Extreme"
 }
 
+GUESSING_JSON_PATH = os.path.join(os.getcwd(), "guessing.json")
+
+if not os.path.exists(GUESSING_JSON_PATH):
+    with open(GUESSING_JSON_PATH, "w") as f:
+        json.dump({
+            "members": {}
+        }, f, indent=4)
+
 @dataclass
 class Level:
     # Name of the level / The answer to the guess
@@ -41,16 +49,19 @@ class Guess(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.levels: dict[str, list[dict]] = {}
-        self.current_level: dict | None = None
         self.current_channel_id = 0
         self.still_guessing = False
+        self.current_level: dict | None = None
         self._diff = 0
+
+        self.user_guessing_data: dict[str, dict[str, dict[str, int]]] = {}
 
         self.current_context: discord.ApplicationContext | None = None
 
         self.in_command = False
 
         self.load_levels()
+        self.load_user_guessing_data()
 
     def load_levels(self):
         with open(os.path.join(os.getcwd(), "guess", "levels.json")) as f:
@@ -68,6 +79,86 @@ class Guess(commands.Cog):
                         "diff": int(intdiff),
                         "v2": True
                     })
+
+    def load_user_guessing_data(self):
+        with open(GUESSING_JSON_PATH, "r") as f:
+            self.user_guessing_data = json.load(f)
+
+    async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool):
+        if str(member.id) not in self.user_guessing_data["members"]:
+            self.user_guessing_data["members"][str(member.id)] = {
+                "member_id": member.id,
+                "exp": 0,
+                "total_answers": 0,
+                "correct_answers": 0
+            }
+
+        current_member = self.user_guessing_data["members"][str(member.id)]
+
+        if correct:
+            current_member["correct_answers"] += 1
+            exp_awarded = 0
+            match diff:
+                case 1:
+                    exp_awarded = 1
+                case 2:
+                    exp_awarded = 3
+                case 3:
+                    exp_awarded = 5
+                case 4:
+                    exp_awarded = 10
+            
+            current_member["exp"] += exp_awarded
+
+        current_member["total_answers"] += 1
+
+        self.user_guessing_data["members"][str(member.id)] = current_member
+        await self.commit_guessing_data()
+    
+    async def commit_guessing_data(self):
+        with open(GUESSING_JSON_PATH, "w") as f:
+            json.dump(self.user_guessing_data, f)
+
+    @discord.slash_command(
+        name="profile", description="View the guessing profile for a specific member!", guild_ids=[
+            int(os.getenv("GUILD_ID", ""))
+        ]
+    )
+    @discord.option(
+        "member",
+        description="The member whose profile you want to view",
+        required=True
+    )
+    async def view_profile(self, ctx: discord.ApplicationContext, member: discord.Member):
+        if str(member.id) not in self.user_guessing_data["members"]:
+            await ctx.respond(f"**Member {member.name} has not made guesses in level guessing.**")
+            return
+        
+        current_member = self.user_guessing_data["members"][str(member.id)]
+        embed = discord.Embed(
+            title=f"Profile for {member.name}"
+        )
+        embed.add_field(
+            name="**EXP**",
+            value=f"**{current_member['exp']}** EXP",
+            inline=False
+        )
+        embed.add_field(
+            name="**Completion Rate**",
+            value=f"**{round(int(current_member['correct_answers']) / int(current_member['total_answers']) * 100)}%**",
+            inline=False
+        )
+        embed.add_field(
+            name="**Correct Guesses**",
+            value=f"**{current_member['correct_answers']}**",
+            inline=True
+        )
+        embed.add_field(
+            name="**Total Guesses**",
+            value=f"**{current_member['total_answers']}**",
+            inline=True
+        )
+        await ctx.respond(embed=embed)
 
     @discord.slash_command(
         name="guess", guild_ids=[
@@ -171,8 +262,11 @@ class Guess(commands.Cog):
             return
 
         answer = message.content.replace(self.bot.user.mention, "").lstrip()
+        
+        is_correct = False
 
         if answer.lower() == self.current_level["name"].lower():
+            is_correct = True
             command = self.guess
             ctx = self.current_context
             _diff = self._diff
@@ -186,7 +280,16 @@ class Guess(commands.Cog):
                 description=f"**Correct! The answer was \"{self.current_level['name']}\"**"
             ), view=RestartView())
             
+            try:
+                await self.process_answer_for_exp(message.author, self.current_level["diff"], is_correct)
+            except TypeError:
+                print("haha no")
             self.reset()
+
+        try:
+            await self.process_answer_for_exp(message.author, self.current_level["diff"], is_correct)
+        except TypeError:
+            print("haha no")
 
     @discord.slash_command(
         name="reset_game", description="[MODERATOR ONLY] Only use command when bot breaks", guild_ids=[
