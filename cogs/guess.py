@@ -59,12 +59,14 @@ class Guess(commands.Cog):
             "length": 0
         }
 
-        for ch_id in os.getenv("GUESSING_CHANNEL", "").split(","):
-            self.still_guessing[int(ch_id)] = False
 
         self.user_guessing_data: dict[str, dict[str, dict[str, int]]] = {}
 
-        self.current_context: discord.ApplicationContext | None = None
+        self.current_contexts: dict[int, discord.ApplicationContext | None] = {}
+
+        for ch_id in os.getenv("GUESSING_CHANNEL", "").split(","):
+            self.still_guessing[int(ch_id)] = False
+            self.current_contexts[int(ch_id)] = None
 
         self.in_command = False
 
@@ -215,7 +217,7 @@ class Guess(commands.Cog):
         
         self.start_times[ctx.channel.id] = time.time()
 
-        self.current_context = ctx
+        self.current_contexts[ctx.channel.id] = ctx
         self._diff = _diff
 
         if _diff == "Random":
@@ -318,7 +320,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
         if message.channel.id not in self.current_levels:
             return
         
-        if self.current_context is None:
+        if self.current_contexts[message.channel.id] is None:
             return
 
         # # long and complex way to check if it's a reply to a Clouve message
@@ -343,7 +345,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
         if answer.lower() == current_level["name"].lower():
             is_correct = True
             command = self.guess
-            ctx = self.current_context
+            ctx = self.current_contexts[message.channel.id]
             _diff = self._diff
 
             if self.current_streak["member"] == message.author.id:
@@ -391,7 +393,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
         debug_info = f"""```current_levels: {json.dumps(self.current_levels, indent=4)}
 current_channel_id: {self.current_channel_id}
 still_guessing: {json.dumps(self.still_guessing, indent=4)}
-current_context: {self.current_context}
+current_contexts: {json.dumps(self.current_contexts, indent=4)}
 _diff: {self._diff}
 start_times: {json.dumps(self.start_times, indent=4)}
 time.time() - start_time: {time.time() - self.start_times[ctx.channel.id]}
@@ -407,7 +409,7 @@ time.time() - start_time >= 45: {time.time() - self.start_times[ctx.channel.id] 
         self.current_levels[channel_id] = None
         self.current_channel_id = 0
         self.still_guessing[channel_id] = False
-        self.current_context = None
+        self.current_contexts[channel_id] = None
         self._diff = ""
         self.start_times[channel_id] = 0
 
