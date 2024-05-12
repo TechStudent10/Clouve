@@ -51,7 +51,7 @@ class Guess(commands.Cog):
         self.bot = bot
         self.levels: dict[str, list[dict]] = {}
         self.current_channel_id = 0
-        self.still_guessing = False
+        self.still_guessing: dict[int, bool] = {}
         self.current_levels: dict[int | None, dict | None] = {}
         self._diff = 0
         self.current_streak = {
@@ -206,7 +206,7 @@ class Guess(commands.Cog):
         # if self.in_command:
         #     return
         # self.in_command = True
-        if self.still_guessing:
+        if self.still_guessing[ctx.channel.id]:
             await ctx.respond("**Level guessing already in progress. Please try again later.**", ephemeral=True)
             return 
         
@@ -241,11 +241,11 @@ class Guess(commands.Cog):
 
         image = discord.File(file_path, "file.png")
         embed.set_image(url="attachment://file.png")
-        self.still_guessing = True
+        self.still_guessing[ctx.channel.id] = True
         og_msg = await ctx.respond(embed=embed, file=image)
 
         await asyncio.sleep(25.0)
-        if self.still_guessing == False:
+        if self.still_guessing[ctx.channel.id] == False:
             return
         
         if current_level["id"] != lvl["id"]:
@@ -257,7 +257,7 @@ class Guess(commands.Cog):
         class RestartView(discord.ui.View):
             @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
             async def new_game(self, button: discord.Button, interaction: discord.Interaction):
-                if outer_self.still_guessing:
+                if outer_self.still_guessing[ctx.channel.id]:
                     await interaction.respond("**Guessing in still progess!**", ephemeral=True)
                     return
                 
@@ -308,7 +308,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
             print("did not pass channel check")
             return
 
-        if not self.still_guessing:
+        if not self.still_guessing[message.channel.id]:
             print("not self.guessing")
             return
         
@@ -355,7 +355,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
             class RestartView(discord.ui.View):
                 @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
                 async def new_game(self, button: discord.Button, interaction: discord.Interaction):
-                    if outer_self.still_guessing:
+                    if outer_self.still_guessing[ctx.channel.id]:
                         await interaction.respond("**Guessing in still progess!**", ephemeral=True)
                         return
                     
@@ -387,7 +387,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
     async def reset_game(self, ctx: discord.ApplicationContext):
         debug_info = f"""```current_levels: {json.dumps(self.current_levels, indent=4)}
 current_channel_id: {self.current_channel_id}
-still_guessing: {self.still_guessing}
+still_guessing: {json.dumps(self.still_guessing, indent=4)}
 current_context: {self.current_context}
 _diff: {self._diff}
 start_times: {json.dumps(self.start_times, indent=4)}
@@ -403,7 +403,7 @@ time.time() - start_time >= 45: {time.time() - self.start_times[ctx.channel.id] 
     def reset(self, channel_id: int):
         self.current_levels[channel_id] = None
         self.current_channel_id = 0
-        self.still_guessing = False
+        self.still_guessing[channel_id] = False
         self.current_context = None
         self._diff = ""
         self.start_times[channel_id] = 0
