@@ -97,7 +97,7 @@ class Guess(commands.Cog):
         print("this should work every 5 seconds")
         if time.time() - self.start_time >= 45:
             self.reset()
-            print("i can't believe it... it broke... or a game hasn't started yet. lol!")
+            print(f"i can't believe it... {'a game hasn\'t started yet' if self.start_time == 0 else 'it broke'}...")
 
     async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool):
         if str(member.id) not in self.user_guessing_data["members"]:
