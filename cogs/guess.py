@@ -1,3 +1,4 @@
+from operator import itemgetter
 import discord, os, json, random, asyncio, time
 from discord.ext import commands, tasks
 from dataclasses import dataclass
@@ -120,7 +121,11 @@ class Guess(commands.Cog):
                 case 4:
                     exp_awarded = 10
             
-            current_member["exp"] += exp_awarded
+            streak_bonus = 1
+            if self.current_streak["length"] > 1:
+                streak_bonus = 1 + self.current_streak["length"] / 10
+            
+            current_member["exp"] += round(exp_awarded * streak_bonus)
 
         current_member["total_answers"] += 1
 
@@ -150,26 +155,33 @@ class Guess(commands.Cog):
         embed = discord.Embed(
             title=f"Profile for {member.name}"
         )
-        embed.add_field(
-            name="**EXP**",
-            value=f"**{current_member['exp']}** EXP",
-            inline=False
-        )
-        embed.add_field(
-            name="**Completion Rate**",
-            value=f"**{round(int(current_member['correct_answers']) / int(current_member['total_answers']) * 100)}%**",
-            inline=False
-        )
-        embed.add_field(
-            name="**Correct Guesses**",
-            value=f"**{current_member['correct_answers']}**",
-            inline=True
-        )
-        embed.add_field(
-            name="**Total Guesses**",
-            value=f"**{current_member['total_answers']}**",
-            inline=True
-        )
+        if member.id != self.bot.user.id:
+            embed.add_field(
+                name="**EXP**",
+                value=f"**{current_member['exp']}** EXP",
+                inline=False
+            )
+            embed.add_field(
+                name="**Completion Rate**",
+                value=f"**{round(int(current_member['correct_answers']) / int(current_member['total_answers']) * 100)}%**",
+                inline=False
+            )
+            embed.add_field(
+                name="**Correct Guesses**",
+                value=f"**{current_member['correct_answers']}**",
+                inline=True
+            )
+            embed.add_field(
+                name="**Total Guesses**",
+                value=f"**{current_member['total_answers']}**",
+                inline=True
+            )
+        else:
+            embed.add_field(
+                name="**Total Questions Asked (Estimate)**",
+                value=f"**{current_member['total_answers']}**",
+                inline=False
+            )
         await ctx.respond(embed=embed)
 
     @discord.slash_command(
@@ -236,10 +248,15 @@ class Guess(commands.Cog):
             return
 
         command = self.guess
+        outer_self = self
 
         class RestartView(discord.ui.View):
             @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
             async def new_game(self, button: discord.Button, interaction: discord.Interaction):
+                if outer_self.still_guessing:
+                    await interaction.respond("**Guessing in still progess!**", ephemeral=True)
+                    return
+                
                 await ctx.invoke(command, _diff=_diff)
 
         await ctx.send(embed=discord.Embed(
@@ -251,6 +268,33 @@ class Guess(commands.Cog):
         }
 
         self.reset()
+
+    @discord.slash_command(
+        name="leaderboard", description="View the level guessing leaderboard!", guild_ids=[
+            int(os.getenv("GUILD_ID", ""))
+        ]
+    )
+    async def view_leaderboard(self, ctx: discord.ApplicationContext):
+        embed = discord.Embed(
+            title="Level Guessing Leaderboard"
+        )
+        members = self.user_guessing_data["members"]
+        unordered_list = list(members.values())
+        sorted_list = sorted(unordered_list, key=itemgetter("exp"), reverse=True)
+        top_ten = sorted_list[:10]
+        for member_i in range(len(top_ten)):
+            member = top_ten[member_i]
+            if member['member_id'] == self.bot.user.id:
+                continue
+
+            embed.add_field(
+                name=f"",
+                value=f"""**{member_i + 1}.** <@{member['member_id']}> **{member['exp']}** EXP
+Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 100)}**%
+{member['correct_answers']} Correct / {member['total_answers']} Total"""
+            )
+
+        await ctx.respond(embed=embed)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -296,9 +340,14 @@ class Guess(commands.Cog):
 
             print(json.dumps(self.current_streak, indent=4))
 
+            outer_self = self
             class RestartView(discord.ui.View):
                 @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
                 async def new_game(self, button: discord.Button, interaction: discord.Interaction):
+                    if outer_self.still_guessing:
+                        await interaction.respond("**Guessing in still progess!**", ephemeral=True)
+                        return
+                    
                     await ctx.invoke(command, _diff=_diff)
 
             streak_str = '\nYou are on a {length}X streak!'.format(length=self.current_streak['length']) if self.current_streak['length'] > 1 else ''
@@ -330,6 +379,9 @@ current_channel_id: {self.current_channel_id}
 still_guessing: {self.still_guessing}
 current_context: {self.current_context}
 _diff: {self._diff}
+start_time: {self.start_time}
+time.time() - start_time: {time.time() - self.start_time}
+time.time() - start_time >= 45: {time.time() - self.start_time >= 45}
 ```"""
         self.reset()
 
