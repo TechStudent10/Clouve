@@ -52,7 +52,7 @@ class Guess(commands.Cog):
         self.levels: dict[str, list[dict]] = {}
         self.current_channel_id = 0
         self.still_guessing = False
-        self.current_levels: dict[int | None, dict | None] = None
+        self.current_levels: dict[int | None, dict | None] = {}
         self._diff = 0
         self.current_streak = {
             "member": 0,
