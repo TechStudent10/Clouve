@@ -1,5 +1,5 @@
-import discord, os, json, random, asyncio
-from discord.ext import commands
+import discord, os, json, random, asyncio, time
+from discord.ext import commands, tasks
 from dataclasses import dataclass
 # from dacite import from_dict
 
@@ -53,12 +53,18 @@ class Guess(commands.Cog):
         self.still_guessing = False
         self.current_level: dict | None = None
         self._diff = 0
+        self.current_streak = {
+            "member": 0,
+            "length": 0
+        }
 
         self.user_guessing_data: dict[str, dict[str, dict[str, int]]] = {}
 
         self.current_context: discord.ApplicationContext | None = None
 
         self.in_command = False
+
+        self.start_time = 0
 
         self.load_levels()
         self.load_user_guessing_data()
@@ -83,6 +89,12 @@ class Guess(commands.Cog):
     def load_user_guessing_data(self):
         with open(GUESSING_JSON_PATH, "r") as f:
             self.user_guessing_data = json.load(f)
+
+    @tasks.loop(seconds=5)
+    async def assure_time_ended(self):
+        if time.time() - self.start_time >= 45:
+            self.reset()
+            print("i can't believe it... it broke... again... bruh")
 
     async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool):
         if str(member.id) not in self.user_guessing_data["members"]:
@@ -182,6 +194,7 @@ class Guess(commands.Cog):
             await ctx.respond("**Level guessing already in progress. Please try again later.**", ephemeral=True)
             return 
         
+        self.start_time = time.time()
 
         self.current_context = ctx
         self._diff = _diff
@@ -232,6 +245,10 @@ class Guess(commands.Cog):
         await ctx.send(embed=discord.Embed(
             description="**You didn't respond in time!**"
         ), view=RestartView())
+        self.current_streak = {
+            "member": 0,
+            "length": 0
+        }
 
         self.reset()
 
@@ -271,13 +288,21 @@ class Guess(commands.Cog):
             ctx = self.current_context
             _diff = self._diff
 
+            if self.current_streak["member"] == message.author.id:
+                self.current_streak["length"] += 1
+            elif self.current_streak["member"] != message.author.id:
+                self.current_streak["member"] = message.author.id
+                self.current_streak["length"] = 1
+
+            print(json.dumps(self.current_streak, indent=4))
+
             class RestartView(discord.ui.View):
                 @discord.ui.button(label="Start new game", style=discord.ButtonStyle.gray)
                 async def new_game(self, button: discord.Button, interaction: discord.Interaction):
                     await ctx.invoke(command, _diff=_diff)
 
             await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
-                description=f"**Correct! The answer was \"{self.current_level['name']}\"**"
+                description=f"**Correct! The answer was \"{self.current_level['name']}\"{'\nYou are on a {length}X streak!'.format(length=self.current_streak['length']) if self.current_streak['length'] > 1 else ''}**"
             ), view=RestartView())
             
             try:
@@ -316,6 +341,7 @@ _diff: {self._diff}
         self.still_guessing = False
         self.current_context = None
         self._diff = ""
+        self.start_time = 0
 
 def setup(bot):
     bot.add_cog(Guess(bot))
