@@ -5,3 +5,4 @@ warns.json
 cli_to_api.py
 audio.m4a
 gcloud-ssh.sh
+guessing.json
