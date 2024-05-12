@@ -1,10 +1,42 @@
 import discord, re, requests
-import dotenv, os, random, json, string
+import dotenv, os, random, json, sys
 from discord.ext import commands, tasks
 from easy_pil import Editor, load_image_async, Font
 from emoji import emoji_count
-import unicodedata, datetime, time
-from webserver import keep_alive
+import unicodedata, datetime, time, atexit
+
+dotenv.load_dotenv(dotenv_path=".env")
+
+# logging
+if not int(os.getenv("DEBUG", "0")):
+    log_folder_path = os.path.join(os.getcwd(), "logs")
+    if not os.path.exists(log_folder_path):
+        os.mkdir(log_folder_path)
+
+    # https://stackoverflow.com/questions/17866724/python-logging-print-statements-while-having-them-print-to-stdout
+    class Tee(object):
+        def __init__(self, *files):
+            self.files = files
+        def write(self, obj):
+            for f in self.files:
+                f.write(obj)
+        def flush(self, *args, **kwagrs):
+            for f in self.files:
+                f.close()
+
+    file_path = os.path.join(log_folder_path, f"{datetime.datetime.today().strftime('%Y-%m-%d %H %M %S')}.log")
+    file = open(file_path, "w")
+    latest_file = open(os.path.join(log_folder_path, "latest.log"), "w")
+    latest_file.write("")
+    sys.stdout = Tee(file, sys.stdout, latest_file)
+    print(f"redirecting stdout to \"{file_path}\"")
+
+    # def exit_handler():
+    #     print("program exit! closing log file!")
+    #     latest_file.close()
+    #     file.close()
+    
+    # atexit.register(exit_handler)
 
 if not os.path.exists("warns.json"):
     with open("warns.json", "w") as f:
@@ -62,7 +94,6 @@ with open("responses.txt", "r") as f:
 with open("banned-words.txt", "r") as f:
     BANNED_WORDS = f.read().split("\n")
 
-dotenv.load_dotenv(dotenv_path=".env")
 
 intents = discord.Intents.default()
 intents.members = True
