@@ -52,7 +52,7 @@ class Guess(commands.Cog):
         self.levels: dict[str, list[dict]] = {}
         self.current_channel_id = 0
         self.still_guessing = False
-        self.current_level: dict | None = None
+        self.current_levels: dict[int | None, dict | None] = None
         self._diff = 0
         self.current_streak = {
             "member": 0,
@@ -65,7 +65,7 @@ class Guess(commands.Cog):
 
         self.in_command = False
 
-        self.start_time = 0
+        self.start_times = {}
 
         self.load_levels()
         self.load_user_guessing_data()
@@ -95,9 +95,11 @@ class Guess(commands.Cog):
     @tasks.loop(seconds=5)
     async def assure_time_ended(self):
         print("this should work every 5 seconds")
-        if time.time() - self.start_time >= 45:
-            self.reset()
-            print(f"i can't believe it... {'a game hasnt started yet' if self.start_time == 0 else 'it broke'}...")
+        for channel_id in self.start_times:
+            start_time = self.start_times[channel_id]
+            if time.time() - start_time >= 45:
+                self.reset(channel_id)
+                print(f"i can't believe it... {'a game hasnt started yet' if start_time == 0 else 'it broke'}...")
 
     async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool):
         if str(member.id) not in self.user_guessing_data["members"]:
@@ -197,7 +199,7 @@ class Guess(commands.Cog):
         autocomplete=diff_autocomplete
     )
     async def guess(self, ctx: discord.ApplicationContext, _diff: str):
-        if str(ctx.channel_id) != os.getenv("GUESSING_CHANNEL"):
+        if str(ctx.channel_id) not in os.getenv("GUESSING_CHANNEL", "").split(","):
             await ctx.respond(f"**Level guessing is disabled in channels besides <#{os.getenv('GUESSING_CHANNEL')}>. Please go there for level guessing.**", ephemeral=True)
             return
 
@@ -208,7 +210,7 @@ class Guess(commands.Cog):
             await ctx.respond("**Level guessing already in progress. Please try again later.**", ephemeral=True)
             return 
         
-        self.start_time = time.time()
+        self.start_times[ctx.channel.id] = time.time()
 
         self.current_context = ctx
         self._diff = _diff
@@ -221,21 +223,21 @@ class Guess(commands.Cog):
         levels = self.levels[str(difficulty)]
         lvl = random.choice(levels)
         lvl["id"] = random.randint(0, 1000)
-        self.current_level = lvl
+        self.current_levels[ctx.channel_id] = lvl
 
         self.current_channel_id = ctx.channel_id
 
-
+        current_level = lvl
 
         embed = discord.Embed(
             title="Guess the level!",
             description=f"Difficulty: {REVERSE_DIFFICULTIES[difficulty]}"
         )
         embed.set_footer(text="Ping Clouve with your answer to guess!")
-        file_path = os.path.join(os.getcwd(), "guess", "levels", self.current_level["name"], self.current_level["file"])
-        if "v2" in self.current_level:
-            if self.current_level["v2"]:
-                file_path = os.path.join(os.getcwd(), "guess", "levels-v2", str(self.current_level["diff"]), self.current_level["name"], self.current_level["file"])
+        file_path = os.path.join(os.getcwd(), "guess", "levels", current_level["name"], current_level["file"])
+        if "v2" in current_level:
+            if current_level["v2"]:
+                file_path = os.path.join(os.getcwd(), "guess", "levels-v2", str(current_level["diff"]), current_level["name"], current_level["file"])
 
         image = discord.File(file_path, "file.png")
         embed.set_image(url="attachment://file.png")
@@ -246,7 +248,7 @@ class Guess(commands.Cog):
         if self.still_guessing == False:
             return
         
-        if self.current_level["id"] != lvl["id"]:
+        if current_level["id"] != lvl["id"]:
             return
 
         command = self.guess
@@ -269,7 +271,7 @@ class Guess(commands.Cog):
             "length": 0
         }
 
-        self.reset()
+        self.reset(ctx.channel.id)
 
     @discord.slash_command(
         name="leaderboard", description="View the level guessing leaderboard!", guild_ids=[
@@ -308,7 +310,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
         if not self.still_guessing:
             return
         
-        if self.current_level is None:
+        if self.current_levels[message.channel.id] is None:
             return
         
         if self.current_context is None:
@@ -329,7 +331,11 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
         
         is_correct = False
 
-        if answer.lower() == self.current_level["name"].lower():
+        current_level = self.current_levels[message.channel.id]
+        if current_level is None:
+            return
+
+        if answer.lower() == current_level["name"].lower():
             is_correct = True
             command = self.guess
             ctx = self.current_context
@@ -356,17 +362,17 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
             streak_str = '\nYou are on a {length}X streak!'.format(length=self.current_streak['length']) if self.current_streak['length'] > 1 else ''
 
             await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
-                description=f"**Correct! The answer was \"{self.current_level['name']}\"{streak_str}**"
+                description=f"**Correct! The answer was \"{current_level['name']}\"{streak_str}**"
             ), view=RestartView())
             
             try:
-                await self.process_answer_for_exp(message.author, self.current_level["diff"], is_correct)
+                await self.process_answer_for_exp(message.author, current_level["diff"], is_correct)
             except TypeError:
                 print("haha no")
-            self.reset()
+            self.reset(message.channel.id)
 
         try:
-            await self.process_answer_for_exp(message.author, self.current_level["diff"], is_correct)
+            await self.process_answer_for_exp(message.author, current_level["diff"], is_correct)
         except TypeError:
             print("haha no")
 
@@ -377,28 +383,28 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
     )
     @discord.default_permissions(moderate_members=True)
     async def reset_game(self, ctx: discord.ApplicationContext):
-        debug_info = f"""```current_level: {json.dumps(self.current_level, indent=4)}
+        debug_info = f"""```current_levels: {json.dumps(self.current_levels, indent=4)}
 current_channel_id: {self.current_channel_id}
 still_guessing: {self.still_guessing}
 current_context: {self.current_context}
 _diff: {self._diff}
-start_time: {self.start_time}
-time.time() - start_time: {time.time() - self.start_time}
-time.time() - start_time >= 45: {time.time() - self.start_time >= 45}
+start_times: {json.dumps(self.start_times, indent=4)}
+time.time() - start_time: {time.time() - self.start_times[ctx.channel.id]}
+time.time() - start_time >= 45: {time.time() - self.start_times[ctx.channel.id] >= 45}
 ```"""
-        self.reset()
+        self.reset(ctx.channel.id)
 
         await ctx.respond(
             f"<@851210524254928907>\n\nDebug Info: \n{debug_info}\n**Game successfully reset**"
         )
 
-    def reset(self):
-        self.current_level = None
+    def reset(self, channel_id: int):
+        self.current_levels[channel_id] = None
         self.current_channel_id = 0
         self.still_guessing = False
         self.current_context = None
         self._diff = ""
-        self.start_time = 0
+        self.start_times[channel_id] = 0
 
 def setup(bot):
     bot.add_cog(Guess(bot))
