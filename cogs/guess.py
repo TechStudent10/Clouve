@@ -310,7 +310,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
         if not self.still_guessing:
             return
         
-        if self.current_levels[message.channel.id] is None:
+        if message.channel.id in self.current_levels:
             return
         
         if self.current_context is None:
