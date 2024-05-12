@@ -69,6 +69,7 @@ class Guess(commands.Cog):
 
         self.load_levels()
         self.load_user_guessing_data()
+        self.assure_time_ended.start()
 
     def load_levels(self):
         with open(os.path.join(os.getcwd(), "guess", "levels.json")) as f:
@@ -93,9 +94,10 @@ class Guess(commands.Cog):
 
     @tasks.loop(seconds=5)
     async def assure_time_ended(self):
+        print("this should work every 5 seconds")
         if time.time() - self.start_time >= 45:
             self.reset()
-            print("i can't believe it... it broke... again... bruh")
+            print("i can't believe it... it broke... or a game hasn't started yet. lol!")
 
     async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool):
         if str(member.id) not in self.user_guessing_data["members"]:
