@@ -298,9 +298,16 @@ class Guess(commands.Cog):
     )
     @discord.default_permissions(moderate_members=True)
     async def reset_game(self, ctx: discord.ApplicationContext):
+        debug_info = f"""```current_level: {json.dumps(self.current_level, indent=4)}
+current_channel_id: {self.current_channel_id}
+still_guessing: {self.still_guessing}
+current_context: {self.current_context}
+_diff: {self._diff}
+```"""
         self.reset()
+        
         await ctx.respond(
-            "**Game successfully reset**"
+            f"Debug Info: \n{debug_info}\n**Game successfully reset**"
         )
 
     def reset(self):
