@@ -304,7 +304,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         is_answer = False
-        if message.channel.id != self.current_channel_id:
+        if str(message.channel.id) not in os.getenv("GUESSING_CHANNEL", "").split(","):
             return
 
         if not self.still_guessing:
