@@ -301,8 +301,10 @@ class Guess(commands.Cog):
                 async def new_game(self, button: discord.Button, interaction: discord.Interaction):
                     await ctx.invoke(command, _diff=_diff)
 
+            streak_str = '\nYou are on a {length}X streak!'.format(length=self.current_streak['length']) if self.current_streak['length'] > 1 else ''
+
             await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
-                description=f"**Correct! The answer was \"{self.current_level['name']}\"{'\nYou are on a {length}X streak!'.format(length=self.current_streak['length']) if self.current_streak['length'] > 1 else ''}**"
+                description=f"**Correct! The answer was \"{self.current_level['name']}\"{streak_str}**"
             ), view=RestartView())
             
             try:
