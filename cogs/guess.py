@@ -291,7 +291,7 @@ class Guess(commands.Cog):
                 name=f"",
                 value=f"""**{member_i + 1}.** <@{member['member_id']}> **{member['exp']}** EXP
 Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 100)}**%
-{member['correct_answers']} Correct / {member['total_answers']} Total"""
+{member['correct_answers']} Correct / {member['total_answers']} Total""",
                 inline=False
             )
 
