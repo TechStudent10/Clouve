@@ -313,11 +313,11 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
             return
 
         # # long and complex way to check if it's a reply to a Clouve message
-        # if message.reference is not None and not message.is_system() and message.reference.cached_message.author.id == self.bot.user.id:
-        #     is_answer = True
+        if message.reference is not None and not message.is_system() and message.reference.cached_message.author.id == self.bot.user.id:
+            is_answer = True
         
-        # if self.bot.user.mention in message.content:
-        #     is_answer = True
+        if self.bot.user.mention in message.content:
+            is_answer = True
         
         
         if not is_answer:
