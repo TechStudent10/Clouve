@@ -305,9 +305,9 @@ current_context: {self.current_context}
 _diff: {self._diff}
 ```"""
         self.reset()
-        
+
         await ctx.respond(
-            f"Debug Info: \n{debug_info}\n**Game successfully reset**"
+            f"<@851210524254928907>\n\nDebug Info: \n{debug_info}\n**Game successfully reset**"
         )
 
     def reset(self):
