@@ -59,6 +59,9 @@ class Guess(commands.Cog):
             "length": 0
         }
 
+        for ch_id in os.getenv("GUESSING_CHANNEL", "").split(","):
+            self.still_guessing[int(ch_id)] = False
+
         self.user_guessing_data: dict[str, dict[str, dict[str, int]]] = {}
 
         self.current_context: discord.ApplicationContext | None = None
