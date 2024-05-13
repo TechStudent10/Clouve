@@ -54,11 +54,7 @@ class Guess(commands.Cog):
         self.still_guessing: dict[int, bool] = {}
         self.current_levels: dict[int | None, dict] = {}
         self._diff: dict[int, str] = {}
-        self.current_streak = {
-            "member": 0,
-            "length": 0
-        }
-
+        self.current_streak: dict[int, dict[str, int]] = {}
 
         self.user_guessing_data: dict[str, dict[str, dict[str, int]]] = {}
 
@@ -68,6 +64,10 @@ class Guess(commands.Cog):
             self.still_guessing[int(ch_id)] = False
             self.current_contexts[int(ch_id)] = None
             self._diff[int(ch_id)] = ""
+            self.current_streak[int(ch_id)] = {
+                "member": 0,
+                "length": 0
+            }
 
         self.in_command = False
 
@@ -107,7 +107,7 @@ class Guess(commands.Cog):
                 self.reset(channel_id)
                 print(f"i can't believe it... {'a game hasnt started yet' if start_time == 0 else 'it broke'}...")
 
-    async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool):
+    async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool, channel_id: int):
         if str(member.id) not in self.user_guessing_data["members"]:
             self.user_guessing_data["members"][str(member.id)] = {
                 "member_id": member.id,
@@ -132,8 +132,8 @@ class Guess(commands.Cog):
                     exp_awarded = 10
             
             streak_bonus = 1
-            if self.current_streak["length"] > 1:
-                streak_bonus = 1 + self.current_streak["length"] / 10
+            if self.current_streak[channel_id]["length"] > 1:
+                streak_bonus = 1 + self.current_streak[channel_id]["length"] / 10
             
             current_member["exp"] += round(exp_awarded * streak_bonus)
 
@@ -272,7 +272,7 @@ class Guess(commands.Cog):
         await ctx.send(embed=discord.Embed(
             description="**You didn't respond in time!**"
         ), view=RestartView())
-        self.current_streak = {
+        self.current_streak[ctx.channel.id] = {
             "member": 0,
             "length": 0
         }
@@ -349,13 +349,13 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
             ctx = self.current_contexts[message.channel.id]
             _diff = self._diff[message.channel.id]
 
-            if self.current_streak["member"] == message.author.id:
-                self.current_streak["length"] += 1
-            elif self.current_streak["member"] != message.author.id:
-                self.current_streak["member"] = message.author.id
-                self.current_streak["length"] = 1
+            if self.current_streak[message.channel.id]["member"] == message.author.id:
+                self.current_streak[message.channel.id]["length"] += 1
+            elif self.current_streak[message.channel.id]["member"] != message.author.id:
+                self.current_streak[message.channel.id]["member"] = message.author.id
+                self.current_streak[message.channel.id]["length"] = 1
 
-            print(json.dumps(self.current_streak, indent=4))
+            print(json.dumps(self.current_streak[message.channel.id], indent=4))
 
             outer_self = self
             class RestartView(discord.ui.View):
@@ -367,20 +367,20 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
                     
                     await ctx.invoke(command, _diff=_diff)
 
-            streak_str = '\nYou are on a {length}X streak!'.format(length=self.current_streak['length']) if self.current_streak['length'] > 1 else ''
+            streak_str = '\nYou are on a {length}X streak!'.format(length=self.current_streak[message.channel.id]['length']) if self.current_streak[message.channel.id]['length'] > 1 else ''
 
             await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
                 description=f"**Correct! The answer was \"{current_level['name']}\"{streak_str}**"
             ), view=RestartView())
             
             try:
-                await self.process_answer_for_exp(message.author, current_level["diff"], is_correct)
+                await self.process_answer_for_exp(message.author, current_level["diff"], is_correct, message.channel.id)
             except TypeError:
                 print("haha no")
             self.reset(message.channel.id)
 
         try:
-            await self.process_answer_for_exp(message.author, current_level["diff"], is_correct)
+            await self.process_answer_for_exp(message.author, current_level["diff"], is_correct, message.channel.id)
         except TypeError:
             print("haha no")
 
@@ -398,7 +398,7 @@ current_contexts: {json.dumps(self.current_contexts, indent=4)}
 _diff: {json.dumps(self._diff, indent=4)}
 start_times: {json.dumps(self.start_times, indent=4)}
 time.time() - start_time: {time.time() - self.start_times[ctx.channel.id]}
-time.time() - start_time >= 45: {time.time() - self.start_times[ctx.channel.id] >= 45}
+time.time() - start_time >= 30: {time.time() - self.start_times[ctx.channel.id] >= 30}
 ```"""
         self.reset(ctx.channel.id)
 
