@@ -53,7 +53,7 @@ class Guess(commands.Cog):
         self.current_channel_id = 0
         self.still_guessing: dict[int, bool] = {}
         self.current_levels: dict[int | None, dict] = {}
-        self._diff = 0
+        self._diff: dict[int, str] = {}
         self.current_streak = {
             "member": 0,
             "length": 0
@@ -67,6 +67,7 @@ class Guess(commands.Cog):
         for ch_id in os.getenv("GUESSING_CHANNEL", "").split(","):
             self.still_guessing[int(ch_id)] = False
             self.current_contexts[int(ch_id)] = None
+            self._diff[int(ch_id)] = ""
 
         self.in_command = False
 
@@ -218,7 +219,7 @@ class Guess(commands.Cog):
         self.start_times[ctx.channel.id] = time.time()
 
         self.current_contexts[ctx.channel.id] = ctx
-        self._diff = _diff
+        self._diff[ctx.channel.id] = _diff
 
         if _diff == "Random":
             difficulty = DIFFICULTIES[random.choice(list(DIFFICULTIES.keys()))]
@@ -346,7 +347,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
             is_correct = True
             command = self.guess
             ctx = self.current_contexts[message.channel.id]
-            _diff = self._diff
+            _diff = self._diff[message.channel.id]
 
             if self.current_streak["member"] == message.author.id:
                 self.current_streak["length"] += 1
@@ -394,7 +395,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
 current_channel_id: {self.current_channel_id}
 still_guessing: {json.dumps(self.still_guessing, indent=4)}
 current_contexts: {json.dumps(self.current_contexts, indent=4)}
-_diff: {self._diff}
+_diff: {json.dumps(self._diff, indent=4)}
 start_times: {json.dumps(self.start_times, indent=4)}
 time.time() - start_time: {time.time() - self.start_times[ctx.channel.id]}
 time.time() - start_time >= 45: {time.time() - self.start_times[ctx.channel.id] >= 45}
@@ -410,7 +411,7 @@ time.time() - start_time >= 45: {time.time() - self.start_times[ctx.channel.id] 
         self.current_channel_id = 0
         self.still_guessing[channel_id] = False
         self.current_contexts[channel_id] = None
-        self._diff = ""
+        self._diff[channel_id] = ""
         self.start_times[channel_id] = 0
 
 def setup(bot):
