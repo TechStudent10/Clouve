@@ -52,7 +52,7 @@ class Guess(commands.Cog):
         self.levels: dict[str, list[dict]] = {}
         self.current_channel_id = 0
         self.still_guessing: dict[int, bool] = {}
-        self.current_levels: dict[int | None, dict | None] = {}
+        self.current_levels: dict[int | None, dict] = {}
         self._diff = 0
         self.current_streak = {
             "member": 0,
@@ -102,7 +102,7 @@ class Guess(commands.Cog):
         print("this should work every 5 seconds")
         for channel_id in self.start_times:
             start_time = self.start_times[channel_id]
-            if time.time() - start_time >= 45:
+            if time.time() - start_time >= 30:
                 self.reset(channel_id)
                 print(f"i can't believe it... {'a game hasnt started yet' if start_time == 0 else 'it broke'}...")
 
@@ -249,11 +249,11 @@ class Guess(commands.Cog):
         self.still_guessing[ctx.channel.id] = True
         og_msg = await ctx.respond(embed=embed, file=image)
 
-        await asyncio.sleep(25.0)
+        await asyncio.sleep(30.0)
         if self.still_guessing[ctx.channel.id] == False:
             return
         
-        if current_level["id"] != lvl["id"]:
+        if self.current_levels[ctx.channel.id]["id"] != lvl["id"]:
             return
 
         command = self.guess
@@ -406,7 +406,7 @@ time.time() - start_time >= 45: {time.time() - self.start_times[ctx.channel.id] 
         )
 
     def reset(self, channel_id: int):
-        self.current_levels[channel_id] = None
+        self.current_levels[channel_id] = {}
         self.current_channel_id = 0
         self.still_guessing[channel_id] = False
         self.current_contexts[channel_id] = None
