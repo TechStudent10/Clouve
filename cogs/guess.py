@@ -105,6 +105,11 @@ class Guess(commands.Cog):
             start_time = self.start_times[channel_id]
             if time.time() - start_time >= 30:
                 self.reset(channel_id)
+                self.bot.get_channel(channel_id).send(
+                    embed=discord.Embed(
+                        description="**The game has been auto-reset! You may now get back to guessing!**"
+                    )
+                )
                 print(f"i can't believe it... {'a game hasnt started yet' if start_time == 0 else 'it broke'}...")
 
     async def process_answer_for_exp(self, member: discord.Member | discord.User, diff: int, correct: bool, channel_id: int):
