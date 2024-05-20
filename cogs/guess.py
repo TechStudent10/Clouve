@@ -146,6 +146,8 @@ class Guess(commands.Cog):
 
         self.user_guessing_data["members"][str(member.id)] = current_member
         await self.commit_guessing_data()
+
+        return exp_awarded
     
     async def commit_guessing_data(self):
         with open(GUESSING_JSON_PATH, "w") as f:
@@ -372,16 +374,19 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
                     
                     await ctx.invoke(command, _diff=_diff)
 
-            streak_str = '\nYou are on a {length}X streak!'.format(length=self.current_streak[message.channel.id]['length']) if self.current_streak[message.channel.id]['length'] > 1 else ''
-
-            await message.channel.send(f"{message.author.mention}", embed=discord.Embed(
-                description=f"**Correct! The answer was \"{current_level['name']}\"{streak_str}**"
-            ), view=RestartView())
+            exp_awarded = 0
             
             try:
-                await self.process_answer_for_exp(message.author, current_level["diff"], is_correct, message.channel.id)
+                exp_awarded = await self.process_answer_for_exp(message.author, current_level["diff"], is_correct, message.channel.id)
             except TypeError:
                 print("haha no")
+
+            streak_str = 'You are on a {length}X streak!'.format(length=self.current_streak[message.channel.id]['length']) if self.current_streak[message.channel.id]['length'] > 1 else ''
+
+            await message.reply(embed=discord.Embed(
+                description=f"**Correct! The answer was \"{current_level['name']}\"\n{streak_str}\nYou have been awarded {exp_awarded} EXP!**"
+            ), view=RestartView())
+
             self.reset(message.channel.id)
 
         try:

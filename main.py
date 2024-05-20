@@ -1,5 +1,5 @@
 import discord, re, requests
-import dotenv, os, random, json, sys
+import dotenv, os, random, json, sys, traceback
 from discord.ext import commands, tasks
 from easy_pil import Editor, load_image_async, Font
 from emoji import emoji_count
@@ -226,18 +226,20 @@ async def create_welcome_image(member: discord.Member):
 
         background.paste(avatar, (50, 40))
 
-    background.text((text_x, 57), f"{member.display_name} has joined!", bold_font if len(member.display_name) <= 20 else smaller_bold_font, color="white", align="center")
+    background.text((text_x, 57), f"{member.name} has joined!", bold_font if len(member.name) <= 20 else smaller_bold_font, color="white", align="center")
     background.text((text_x, 85), f"You are member #{member.guild.member_count}", regular_font, color="white", align="center")
 
     file = discord.File(background.image_bytes, filename="welcome.jpg")
 
-    await member.guild.get_channel(int(os.getenv("WELCOME_CHANNEL", ""))).send(f"Hey {member.mention}, welcome to **The Sound Cloud**!!!! Be sure to read the rules in #info-rules before joining in on the fun!", file=file)
+    await member.guild.get_channel(int(os.getenv("WELCOME_CHANNEL", ""))).send(f"Hey {member.mention}, welcome to **The Sound Cloud**!!!! Be sure to read the rules in <#845930016449232898> before joining in on the fun!", file=file)
 
 
 @bot.event
 async def on_ready():
     print("Clouve is afloat!")
     check_infractions.start()
+    tech_logs_channel = bot.get_channel(int(os.getenv("TECH_LOGS", "")))
+    await tech_logs_channel.send(embed=discord.Embed(description="**Clouve is afloat! Bot is up and running!**"))
     # await bot.sync_commands()
 
 @bot.event
@@ -521,6 +523,36 @@ async def resync(ctx: discord.ApplicationContext):
     await bot.sync_commands()
     await ctx.respond(embed=discord.Embed(
         description="**Resync sucessful**"
+    ))
+
+@bot.slash_command(name="restart", description="[MOD ONLY] Restarts hte bot", guild_ids=[
+    int(os.getenv("GUILD_ID", ""))
+])
+@discord.default_permissions(manage_guild=True)
+async def restart_bot(ctx: discord.ApplicationContext):
+    if int(os.getenv("IS_MAIN_SERV", "")) == 0:
+        await ctx.respond("**Not main server!**", ephemeral=True)
+        return
+    
+    await ctx.respond("Restarting bot!")
+    tech_logs_channel = bot.get_channel(int(os.getenv("TECH_LOGS", "")))
+
+    await tech_logs_channel.send(embed=discord.Embed(
+        description="**Shutting down Clouve...**"
+    ))
+    os.system("cd ~ && ./update-clouve.sh")
+
+# Error events
+@bot.event
+async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
+    tech_logs_channel = bot.get_channel(int(os.getenv("TECH_LOGS", "")))
+    await tech_logs_channel.send(embed=discord.Embed(
+        title=f"Error occured!",
+        description=f"""An error occured in <#{ctx.channel.id}>!
+Error:
+```python
+{''.join(traceback.format_exception(error))}
+```"""
     ))
 
 # https://guide.pycord.dev/extensions/commands/help-command
