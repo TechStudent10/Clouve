@@ -540,7 +540,7 @@ async def restart_bot(ctx: discord.ApplicationContext):
     await tech_logs_channel.send(embed=discord.Embed(
         description="**Shutting down Clouve...**"
     ))
-    os.system("cd ~ && ./update-clouve.sh")
+    os.system("cd && ./update-clouve.sh")
 
 # Error events
 @bot.event
