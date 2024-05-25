@@ -555,6 +555,16 @@ Error:
 ```"""
     ))
 
+# STOP. TONGUE. REACTING.
+@bot.event
+async def on_reaction_remove(reaction: discord.Reaction, user: discord.Member):
+    if reaction.emoji == "👅":
+        tech_logs_channel = bot.get_channel(int(os.getenv("TECH_LOGS", "")))
+        await tech_logs_channel.send(embed=discord.Embed(
+            title="Uh-Oh! Someone tongue reacted!",
+            description=f"Have we found our tongue reactor?\n\nChannel: <#{reaction.message.channel.id}>\nUser: <@{user.id}>\nMessage: {reaction.message.jump_url}"
+        ))
+
 # https://guide.pycord.dev/extensions/commands/help-command
 class MyHelp(commands.HelpCommand):
     async def send_bot_help(self, mapping):
