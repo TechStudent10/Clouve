@@ -100,12 +100,14 @@ class Guess(commands.Cog):
 
     @tasks.loop(seconds=5)
     async def assure_time_ended(self):
-        print("this should work every 5 seconds")
+        # print("this should work every 5 seconds")
         for channel_id in self.start_times:
             start_time = self.start_times[channel_id]
+            if self.current_levels[channel_id] == {}:
+                return
             if time.time() - start_time >= 30:
                 self.reset(channel_id)
-                self.bot.get_channel(channel_id).send(
+                await self.bot.get_channel(channel_id).send(
                     embed=discord.Embed(
                         description="**The game has been auto-reset! You may now get back to guessing!**"
                     )
@@ -123,9 +125,9 @@ class Guess(commands.Cog):
 
         current_member = self.user_guessing_data["members"][str(member.id)]
 
+        exp_awarded = 0
         if correct:
             current_member["correct_answers"] += 1
-            exp_awarded = 0
             match diff:
                 case 1:
                     exp_awarded = 1
@@ -404,7 +406,6 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
         debug_info = f"""```current_levels: {json.dumps(self.current_levels, indent=4)}
 current_channel_id: {self.current_channel_id}
 still_guessing: {json.dumps(self.still_guessing, indent=4)}
-current_contexts: {json.dumps(self.current_contexts, indent=4)}
 _diff: {json.dumps(self._diff, indent=4)}
 start_times: {json.dumps(self.start_times, indent=4)}
 time.time() - start_time: {time.time() - self.start_times[ctx.channel.id]}

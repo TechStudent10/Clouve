@@ -1,4 +1,4 @@
-import discord, re, requests
+import discord, re, requests, getpass
 import dotenv, os, random, json, sys, traceback
 from discord.ext import commands, tasks
 from easy_pil import Editor, load_image_async, Font
@@ -8,35 +8,35 @@ import unicodedata, datetime, time, atexit
 dotenv.load_dotenv(dotenv_path=".env")
 
 # logging
-if not int(os.getenv("DEBUG", "0")):
-    log_folder_path = os.path.join(os.getcwd(), "logs")
-    if not os.path.exists(log_folder_path):
-        os.mkdir(log_folder_path)
+# if not int(os.getenv("DEBUG", "0")):
+#     log_folder_path = os.path.join(os.getcwd(), "logs")
+#     if not os.path.exists(log_folder_path):
+#         os.mkdir(log_folder_path)
 
-    # https://stackoverflow.com/questions/17866724/python-logging-print-statements-while-having-them-print-to-stdout
-    class Tee(object):
-        def __init__(self, *files):
-            self.files = files
-        def write(self, obj):
-            for f in self.files:
-                f.write(obj)
-        def flush(self, *args, **kwagrs):
-            for f in self.files:
-                f.close()
+#     # https://stackoverflow.com/questions/17866724/python-logging-print-statements-while-having-them-print-to-stdout
+#     class Tee(object):
+#         def __init__(self, *files):
+#             self.files = files
+#         def write(self, obj):
+#             for f in self.files:
+#                 f.write(obj)
+#         def flush(self, *args, **kwagrs):
+#             for f in self.files:
+#                 f.close()
 
-    file_path = os.path.join(log_folder_path, f"{datetime.datetime.today().strftime('%Y-%m-%d %H %M %S')}.log")
-    file = open(file_path, "w")
-    latest_file = open(os.path.join(log_folder_path, "latest.log"), "w")
-    latest_file.write("")
-    sys.stdout = Tee(file, sys.stdout, latest_file)
-    print(f"redirecting stdout to \"{file_path}\"")
+#     file_path = os.path.join(log_folder_path, f"{datetime.datetime.today().strftime('%Y-%m-%d %H %M %S')}.log")
+#     file = open(file_path, "w")
+#     latest_file = open(os.path.join(log_folder_path, "latest.log"), "w")
+#     latest_file.write("")
+#     sys.stdout = Tee(file, sys.stdout, latest_file)
+#     print(f"redirecting stdout to \"{file_path}\"")
 
-    # def exit_handler():
-    #     print("program exit! closing log file!")
-    #     latest_file.close()
-    #     file.close()
+#     # def exit_handler():
+#     #     print("program exit! closing log file!")
+#     #     latest_file.close()
+#     #     file.close()
     
-    # atexit.register(exit_handler)
+#     # atexit.register(exit_handler)
 
 if not os.path.exists("warns.json"):
     with open("warns.json", "w") as f:
@@ -542,6 +542,39 @@ async def restart_bot(ctx: discord.ApplicationContext):
     ))
     os.system("cd && ./update-clouve.sh")
 
+# @bot.slash_command(name="topic", description="topic convo", guild_ids=[
+#     int(os.getenv("GUILD_ID", ""))
+# ])
+# async def topic(ctx: discord.ApplicationContext):
+#     await ctx.defer()
+#     messages = await ctx.channel.history(limit=6).flatten()
+#     messages.reverse()
+
+#     message_contents = [message.content for message in messages]
+
+#     headers = {
+#         "Authorization": f"Bearer no_token_for_u", # remember to make this an env var!
+#         "Content-Type": "application/json"
+#     }
+
+#     message_content = ', '.join(message_contents)
+
+#     print(json.dumps({
+#             "inputs": {
+#                 "text": f"The last 6 messages sent were: [{message_content}] What is the topic of this conversation?"
+#             }
+#         }))
+
+#     response = requests.post(
+#         "https://api-inference.huggingface.co/models/microsoft/DialoGPT-large",
+#         headers=headers,
+#         data=json.dumps({
+#             "inputs": f"The last 6 messages sent were: [{message_content}] What is the topic of this conversation?"
+#         })
+#     ).json()
+
+#     await ctx.followup.send(f"{response[0]["generated_text"]}", ephemeral=True)
+
 # Error events
 @bot.event
 async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
@@ -552,7 +585,7 @@ async def on_application_command_error(ctx: discord.ApplicationContext, error: d
 Error:
 ```python
 {''.join(traceback.format_exception(error))}
-```"""
+```""".replace(getpass.getuser(), "*" * len(getpass.getuser()))
     ))
 
 # STOP. TONGUE. REACTING.
