@@ -576,17 +576,17 @@ async def restart_bot(ctx: discord.ApplicationContext):
 #     await ctx.followup.send(f"{response[0]["generated_text"]}", ephemeral=True)
 
 # Error events
-@bot.event
-async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
-    tech_logs_channel = bot.get_channel(int(os.getenv("TECH_LOGS", "")))
-    await tech_logs_channel.send(embed=discord.Embed(
-        title=f"Error occured!",
-        description=f"""An error occured in <#{ctx.channel.id}>!
-Error:
-```python
-{''.join(traceback.format_exception(error))}
-```""".replace(getpass.getuser(), "*" * len(getpass.getuser()))
-    ))
+# @bot.event
+# async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
+#     tech_logs_channel = bot.get_channel(int(os.getenv("TECH_LOGS", "")))
+#     await tech_logs_channel.send(embed=discord.Embed(
+#         title=f"Error occured!",
+#         description=f"""An error occured in <#{ctx.channel.id}>!
+# Error:
+# ```python
+# {''.join(traceback.format_exception(error))}
+# ```""".replace(getpass.getuser(), "*" * len(getpass.getuser()))
+#     ))
 
 # STOP. TONGUE. REACTING.
 @bot.event
