@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 from easy_pil import Editor, load_image_async, Font
 from emoji import emoji_count
 import unicodedata, datetime, time, atexit
+import homoglyphs_fork as hg
 
 dotenv.load_dotenv(dotenv_path=".env")
 
@@ -296,17 +297,21 @@ async def process_message(message: discord.Message):
     # print(filtered_content)
 
     # converts thing like the freaky font into regular ASCII to be analyzed
-    filtered_content = filtered_content.lower().split(" ")
+    homoglyphs = hg.Homoglyphs(languages={"en", "fr"}, strategy=hg.STRATEGY_LOAD)
+    filtered_content = filtered_content.split(" ")
     # print(filtered_content)
     for word in filtered_content:
-        word = unicodedata.normalize("NFKC", word)
-        # print(word)
-        for banned_word in BANNED_WORDS:
-            if banned_word.lower() == word or \
-                banned_word.lower() == word.replace("i", "l") or\
-                    banned_word.lower() == word.replace("m", "e"):
-                contains_banned_word = True
-                break
+        print(word.replace("v", "n"))
+        matches = homoglyphs.to_ascii(word)
+        for word in matches:
+            # print(word)
+            word = unicodedata.normalize("NFKC", word).lower()
+            for banned_word in BANNED_WORDS:
+                if banned_word.lower() == word or \
+                    banned_word.lower() == word.replace("i", "l") or\
+                        banned_word.lower() == word.replace("m", "e"):
+                    contains_banned_word = True
+                    break
         # break
 
     if contains_banned_word:
