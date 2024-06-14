@@ -14,7 +14,6 @@ emoji = "*"
 tinytag = "*"
 youtube-search-python = "*"
 dacite = "*"
-homoglyphs-fork = "*"
 
 [dev-packages]
 
