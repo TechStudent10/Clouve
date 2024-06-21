@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 from easy_pil import Editor, load_image_async, Font
 from emoji import emoji_count
 import unicodedata, datetime, time, atexit
+import homoglyphs_fork as hg
 
 dotenv.load_dotenv(dotenv_path=".env")
 
@@ -296,17 +297,21 @@ async def process_message(message: discord.Message):
     # print(filtered_content)
 
     # converts thing like the freaky font into regular ASCII to be analyzed
-    filtered_content = filtered_content.lower().split(" ")
+    homoglyphs = hg.Homoglyphs(languages={"en", "fr"}, strategy=hg.STRATEGY_LOAD)
+    filtered_content = filtered_content.split(" ")
     # print(filtered_content)
     for word in filtered_content:
-        word = unicodedata.normalize("NFKC", word)
-        # print(word)
-        for banned_word in BANNED_WORDS:
-            if banned_word.lower() == word or \
-                banned_word.lower() == word.replace("i", "l") or\
-                    banned_word.lower() == word.replace("m", "e"):
-                contains_banned_word = True
-                break
+        print(word.replace("v", "n"))
+        matches = homoglyphs.to_ascii(word)
+        for word in matches:
+            # print(word)
+            word = unicodedata.normalize("NFKC", word).lower()
+            for banned_word in BANNED_WORDS:
+                if banned_word.lower() == word or \
+                    banned_word.lower() == word.replace("i", "l") or\
+                        banned_word.lower() == word.replace("m", "e"):
+                    contains_banned_word = True
+                    break
         # break
 
     if contains_banned_word:
@@ -593,6 +598,60 @@ async def restart_bot(ctx: discord.ApplicationContext):
 # {''.join(traceback.format_exception(error))}
 # ```""".replace(getpass.getuser(), "*" * len(getpass.getuser()))
 #     ))
+
+@bot.slash_command(name="selfmute", description="Mute yourself (for whatever reason)", guild_ids=[
+    int(os.getenv("GUILD_ID", ""))
+])
+@discord.option("duration", parameter_name="duration_str")
+async def selfmute(ctx: discord.ApplicationContext, duration_str: str):
+    multipliers = {
+        "s": 1,
+        "m": 60,
+        "h": 3600,
+        "d": 3600 * 24,
+        "w": 3600 * 24 * 7,
+        "m": 3600 * 24 * 7 * 30,
+        "y": 3600 * 24 * 7 * 30 * 12
+    }
+
+    duration_list = list(duration_str)
+    multiplier = duration_list.pop().lower()
+    duration_sec = int(
+        "".join(duration_list)
+    ) * multipliers[multiplier]
+
+    if duration_sec > multipliers["m"]:
+        responses = [
+            "im not doing that",
+            "are you stupid?? a year??",
+            "Dude, what",
+            "Are you sure you won't leave the server before then?",
+            "Do you need rehab?",
+            "You are absolutely not okay bro",
+            "For HOW long now?!?!",
+            "If you want to be muted THAT long,, leave the sevrer. do it. i DARE you.",
+            "no what",
+            "why do you want this",
+            "i understand having silly ideas, but no.",
+            "why are you like this",
+            "listen, im just gonna be blunt, absolutely goddamn not.",
+            "if you wanna be muted for that long just leave forever never come back",
+            "ik youre addicted to this place you couldnt survive this lol",
+            "i dont think i can even mute people for an entire month how do you expect me to do this",
+            """why im not gonna do this
+1. its stupid
+2. i literally cant do that
+3. just leave if you want to be muted for an entire year""",
+            "<:boarsplode:1034281725750153267>",
+            "<:ayo:988904731588067368>"
+        ]
+        await ctx.respond(random.choice(responses))
+        return
+    
+    await ctx.author.timeout_for(datetime.timedelta(seconds=duration_sec))
+    await ctx.respond(embed=discord.Embed(
+        description="Succesfully timed you out!"
+    ))
 
 # STOP. TONGUE. REACTING.
 @bot.event
