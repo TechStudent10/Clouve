@@ -610,7 +610,7 @@ async def selfmute(ctx: discord.ApplicationContext, duration_str: str):
         "h": 3600,
         "d": 3600 * 24,
         "w": 3600 * 24 * 7,
-        "m": 3600 * 24 * 7 * 30,
+        # "m": 3600 * 24 * 7 * 30,
         "y": 3600 * 24 * 7 * 30 * 12
     }
 
@@ -620,7 +620,7 @@ async def selfmute(ctx: discord.ApplicationContext, duration_str: str):
         "".join(duration_list)
     ) * multipliers[multiplier]
 
-    if duration_sec > multipliers["m"]:
+    if duration_sec > 4 * multipliers["w"]:
         responses = [
             "im not doing that",
             "are you stupid?? a year??",
