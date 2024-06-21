@@ -616,9 +616,12 @@ async def selfmute(ctx: discord.ApplicationContext, duration_str: str):
 
     duration_list = list(duration_str)
     multiplier = duration_list.pop().lower()
-    duration_sec = int(
-        "".join(duration_list)
-    ) * multipliers[multiplier]
+    try:
+        duration_sec = int(
+            "".join(duration_list)
+        ) * multipliers[multiplier]
+    except IndexError:
+        await ctx.respond("**Invalid time multiplier. Please use `s, m, h, d, w, or y`**")
 
     if duration_sec > 4 * multipliers["w"]:
         responses = [
