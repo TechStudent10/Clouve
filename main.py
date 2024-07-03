@@ -1,3 +1,5 @@
+import string
+import demoji
 import discord, re, requests, getpass
 import dotenv, os, random, json, sys, traceback
 from discord.ext import commands, tasks
@@ -6,7 +8,9 @@ from emoji import emoji_count
 import unicodedata, datetime, time, atexit
 import homoglyphs_fork as hg
 
-dotenv.load_dotenv(dotenv_path=".env")
+dotenv.load_dotenv(dotenv_path="main.env")
+
+print(os.getenv("IS_MAIN_SERV"))
 
 # logging
 # if not int(os.getenv("DEBUG", "0")):
@@ -94,6 +98,7 @@ WORD_BYPASSES = {
 }
 
 RESPONSES = []
+CLOUVE_SELFMUTE_PREFIX = "[CLOUVE USER-REQUESTED SELF MUTE]"
 
 with open("responses.txt", "r") as f:
     RESPONSES = f.read().split("\n")
@@ -294,14 +299,20 @@ async def process_message(message: discord.Message):
         for actual in WORD_BYPASSES[bypass]:
             filtered_content = filtered_content.replace(bypass, actual)
     
-    # print(filtered_content)
+    filtered_content = demoji.replace_with_desc(filtered_content, "")
+
+    # for symbol in string.punctuation:
+    #     filtered_content.replace(symbol, "")
+
+
+#    print(filtered_content)
 
     # converts thing like the freaky font into regular ASCII to be analyzed
     homoglyphs = hg.Homoglyphs(languages={"en", "fr"}, strategy=hg.STRATEGY_LOAD)
     filtered_content = filtered_content.split(" ")
     # print(filtered_content)
     for word in filtered_content:
-        print(word.replace("v", "n"))
+ #       print(word.replace("v", "n"))
         matches = homoglyphs.to_ascii(word)
         for word in matches:
             # print(word)
@@ -354,6 +365,9 @@ async def on_message(message: discord.Message):
         return
 
     if isinstance(message.channel, discord.DMChannel):
+        if message.content.lower().startswith("!unmute"):
+            if not message.author.timed_out:
+                await message.channel.send("**You are not timed out**")
         print("dms")
         await message.channel.send(random.choice(RESPONSES))
     else:
@@ -623,10 +637,10 @@ async def selfmute(ctx: discord.ApplicationContext, duration_str: str):
     except IndexError:
         await ctx.respond("**Invalid time multiplier. Please use `s, m, h, d, w, or y`**")
 
-    if duration_sec > 4 * multipliers["w"]:
+    if duration_sec > 2 * multipliers["d"]:
         responses = [
             "im not doing that",
-            "are you stupid?? a year??",
+            # "are you stupid?? a year??",
             "Dude, what",
             "Are you sure you won't leave the server before then?",
             "Do you need rehab?",
@@ -640,18 +654,18 @@ async def selfmute(ctx: discord.ApplicationContext, duration_str: str):
             "listen, im just gonna be blunt, absolutely goddamn not.",
             "if you wanna be muted for that long just leave forever never come back",
             "ik youre addicted to this place you couldnt survive this lol",
-            "i dont think i can even mute people for an entire month how do you expect me to do this",
+            "i dont think i can even mute people for 2 days how do you expect me to do this",
             """why im not gonna do this
 1. its stupid
 2. i literally cant do that
-3. just leave if you want to be muted for an entire year""",
+3. just leave if you want to be muted for that long""",
             "<:boarsplode:1034281725750153267>",
             "<:ayo:988904731588067368>"
         ]
         await ctx.respond(random.choice(responses))
         return
     
-    await ctx.author.timeout_for(datetime.timedelta(seconds=duration_sec))
+    await ctx.author.timeout_for(datetime.timedelta(seconds=duration_sec), reason=f"{CLOUVE_SELFMUTE_PREFIX} This timeout was requested bu this member.")
     await ctx.respond(embed=discord.Embed(
         description="Succesfully timed you out!"
     ))
