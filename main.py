@@ -616,7 +616,10 @@ async def restart_bot(ctx: discord.ApplicationContext):
 @bot.slash_command(name="selfmute", description="Mute yourself (for whatever reason)", guild_ids=[
     int(os.getenv("GUILD_ID", ""))
 ])
-@discord.option("duration", parameter_name="duration_str")
+async def disabled_selfmute(ctx):
+   await ctx.respond(embed=discord.Embed(description="**Selfmute has been disabled!**"))
+
+#@discord.option("duration", parameter_name="duration_str")
 async def selfmute(ctx: discord.ApplicationContext, duration_str: str):
     multipliers = {
         "s": 1,
