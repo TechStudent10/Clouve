@@ -8,3 +8,4 @@ gcloud-ssh.sh
 guessing.json
 logs/
 *.logs
+venv/
