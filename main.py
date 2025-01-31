@@ -104,8 +104,7 @@ with open("responses.txt", "r") as f:
     RESPONSES = f.read().split("\n")
 
 with open("banned-words.txt", "r") as f:
-    BANNED_WORDS = f.read().split("\n")
-
+    BANNED_WORDS = f.read().strip().split("\n")
 
 intents = discord.Intents.default()
 intents.members = True
