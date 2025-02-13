@@ -282,6 +282,19 @@ async def on_member_join(member: discord.Member):
     await create_welcome_image(member)
 
 async def process_message(message: discord.Message):
+    content = message.content
+
+    # Remove spoilers
+    content = content.replace("||", "")
+
+    if content.startswith("!bigboombu"):
+        embed = discord.Embed(
+            description=random.choice(["Big Boombu approves", "Big Boombu approves", "Big Boombu disapproves"])
+        )
+        file = discord.File("boombu.png", filename="boombu.png")
+        embed.set_image(url="attachment://boombu.png")
+        await message.channel.send(file=file, embed=embed)
+
     if message.author.bot or message.author.id == 349977940198555660:
         print("bypassing warn")
         return
@@ -292,11 +305,6 @@ async def process_message(message: discord.Message):
     storm_role = discord.utils.find(lambda r: r.id == 845918904940232725, message.author.guild.roles)
     if storm_role in message.author.roles:
         return
-
-    content = message.content
-
-    # Remove spoilers
-    content = content.replace("||", "")
 
     # Check if it's a discord.gg link (except for adverts)
     if str(message.channel.id) != os.getenv("ADVERTS_CHANNEL") and extract_invite_id(content):
@@ -357,15 +365,6 @@ async def process_message(message: discord.Message):
     content = message.clean_content
     content = content.replace("||", "")
     # print(content)
-
-    if content.startswith("!bigboombu"):
-        embed = discord.Embed(
-            description=random.choice(["Big Boombu approves", "Big Boombu approves", "Big Boombu disapproves"])
-        )
-        file = discord.File("boombu.png", filename="boombu.png")
-        embed.set_image(url="attachment://boombu.png")
-        await message.channel.send(file=file, embed=embed)
-        return
 
     count = emoji_count(content) + len(re.findall(r'<:[^:<>]*:[^:<>]*>', content)) # thank you ChatGPT for the RegeX ^_^
     if count > EMOJI_LIMIT:
