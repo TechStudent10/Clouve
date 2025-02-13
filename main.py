@@ -195,6 +195,28 @@ async def warn_member(member: discord.User | discord.Member, reason: str, messag
 
     await logs_channel.send(embed=embed)
 
+    user_embed = discord.Embed(
+        title="You were warned in the Sound Cloud",
+        description="Future warns could impact your standing in the server"
+    )
+    user_embed.add_field(
+        name="Offending content",
+        value=message.content,
+        inline=False   
+    )
+    user_embed.add_field(
+        name="Channel",
+        value=f"{message.channel.mention}",
+        inline=False
+    )
+    user_embed.add_field(
+        name="Reason",
+        value=reason,
+        inline=False
+    )
+
+    await member.send(embed=user_embed)
+
     # Check if punishment is needed
     # len(...) + 1 is needed because len is used for indexes, and indexes start at 0, not 1.
     if len(infractions[str(member.id)]) == 5:

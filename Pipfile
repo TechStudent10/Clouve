@@ -15,11 +15,12 @@ tinytag = "*"
 youtube-search-python = "*"
 dacite = "*"
 demoji = "*"
+audioop-lts = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.11"
+python_version = "3.13"
 
 [scripts]
 dev = "python main.py"
