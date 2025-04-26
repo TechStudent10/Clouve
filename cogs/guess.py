@@ -276,7 +276,7 @@ class Guess(commands.Cog):
                     await interaction.respond("**Guessing in still progess!**", ephemeral=True)
                     return
                 
-                await ctx.invoke(command, _diff=_diff)
+                await ctx.invoke(command, _diff=_diff) # type: ignore
 
         await ctx.send(embed=discord.Embed(
             description="**You didn't respond in time!**"
@@ -374,7 +374,7 @@ Completion Rate: **{round(member['correct_answers'] / member['total_answers'] * 
                         await interaction.respond("**Guessing in still progess!**", ephemeral=True)
                         return
                     
-                    await ctx.invoke(command, _diff=_diff)
+                    await ctx.invoke(command, _diff=_diff) # type: ignore
 
             exp_awarded = 0
             
